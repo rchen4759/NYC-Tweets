@@ -2,16 +2,23 @@
 
 library(rvest)
 library(tidyverse)
+library(tidytext)
 
 # Fox News
 # read url
 url_fox1 <- 'https://www.foxnews.com/politics/ukraine-prime-minister-congress-requests-more-help-against-russia'
 fox_ukraine <- read_html(url_fox1)
 
+
 # extract text
 fox_ukraine_text <- html_nodes(x = fox_ukraine, 
                            xpath = '//p[@class = "speakable"]')
 fox_ukraine_text <- html_text(fox_ukraine_text, trim = T)
+
+fox_ukraine_text1 <- tibble(fox_ukraine_text)
+
+fox_text <- fox_ukraine_text1 %>%
+  unnest_tokens(output = words_text, input=fox_ukraine_text, token = "words")
 
 # sentiment analysis #
 

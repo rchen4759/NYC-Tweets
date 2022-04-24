@@ -1,0 +1,32 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+
+```{r}
+require(reticulate)
+reticulate::source_python("https://raw.githubusercontent.com/benjaminguinaudeau/tiktokr/master/stealth.py")
+reticulate::source_python("https://raw.githubusercontent.com/benjaminguinaudeau/tiktokr/master/browser.py")
+
+dockeR::doc_copy("tiko")
+
+pr <- plumber::plumb(file = "/usr/api.R") ; pr$run(host = "0.0.0.0", port = 6543L, swagger = F)
+
+
+
+system("docker build ../tiktok_signature -t tiktoksignature")
+system("docker stop tiktoksignature", intern = T) 
+
+system("docker run -dt --rm -p 32768:6543 --name tiktoksignature tiktoksignature:latest", intern = T)
+system("docker exec -dt tiktoksignature /bin/bash Rscript /usr/run_api.R", intern = T)
+
+devtools::install_github("benjaminguinaudeau/tiktokr")
+reticulate::install_miniconda()
+tiktokr::tk_install()
+
+reticulate::py_install(c("pyppeteer", "pyppeteer_stealth", "asyncio", "requests"), pip = T,conda = "auto")
+get_docker_signature("tt")
+
+```
+

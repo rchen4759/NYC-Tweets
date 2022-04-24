@@ -3,6 +3,7 @@ devtools::install_github("benjaminguinaudeau/tiktokr")
 library(tiktokr)
 library(reticulate)
 library(tidyverse)
+library(lubridate)
 
 
 use_python(py_config()$python)
@@ -15,6 +16,18 @@ tk_init()
 
 user_posts <- tk_posts(scope= "user", query = "willsmith", n=50)
 
+music_post <- tk_posts(scope = "music", query = user_posts$music_id[1], n = 100)
+
+trends <- tk_posts(scope="trends", n=200)
+
+
 hash_post <- tk_posts(scope="hashtag", query="maincharacter", n=1000)
 
 charli <- tk_posts(scope="user", query="charlidamelio", n=50)
+
+nytimes <- tk_posts(scope="user", query="nytcooking", n=50)
+
+statsTikTok <- tk_posts(scope="hashtag", query="statsTikTok", n=1000)
+
+nytcTikTok <- tk_posts(scope="hashtag", query="statsTikTok", n=1000)
+
