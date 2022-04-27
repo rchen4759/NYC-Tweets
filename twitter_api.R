@@ -10,11 +10,13 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 ## install dev version of rtweet from github
 remotes::install_github("ropensci/rtweet")
 
+install.packages("remotes")
+library(remotes)
+remotes::install_github("ashoksiri/rtweet")
+
 ## load rtweet package
 library(rtweet)
 
-## load rtweet
-library(rtweet)
 ## load the tidyverse
 library(tidyverse)
 library(tidytext)
@@ -41,6 +43,8 @@ library(purrrlyr)
 library(caret)
 library(glmnet)
 library(ggrepel)
+library(udpipe)
+library(word2vec)
 
 ### loading and preprocessing a training set of tweets
 # function for converting some symbols
@@ -48,12 +52,37 @@ conv_fun <- function(x) iconv(x, "latin1", "ASCII", "")
 
 
 rt <- data.frame(rt)
-tweet_text <- rt %>%
-  select(id, full_text, retweet_count, favorite_count)
 
+trends <- trends_available()
+trends
+
+
+## plot of tweets by hour
+ts_plot(rt, "hour") 
+
+
+tweet_text <- rt %>%
+  select(created_at, id, full_text, retweet_count, favorite_count) %>%
+  dmap_at('full_text', conv_fun)
+
+## divide tweet text into separate words
+tweet_tokens <- tweet_text %>%
+  select(id, full_text) %>%
+  unnest_tokens(word, full_text)
+
+x <- tolower(tweet_text$full_text)
+
+model <- word2vec(x=x, type="cbow", dim = 15, iter=20)
+
+embedded <- as.matrix(model)
+embedded <- predict(model, c("nyc"), type = "embedding")
+
+
+other <- predict(model, c("nyc"), type = "nearest", top_n=5)
+
+#-------------------------------------------------------------------------
 tweet_tidytext <- tweet_text %>%
   unnest_tokens(output = words_text, input=full_text, token = "words")
-
 
 # select words
 tweet_words_ls <- list(tweet_tidytext$words_text)
