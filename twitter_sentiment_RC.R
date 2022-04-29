@@ -12,6 +12,7 @@ remotes::install_github("ropensci/rtweet")
 
 ## load rtweet package
 library(rtweet)
+library(twitteR)
 
 ## load rtweet
 library(rtweet)
@@ -31,6 +32,8 @@ auth_setup_default()
 rt <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
 View(rt)
 
+search_tweet <- searchTwitter('nyu', since='2021-03-01', until='2021-03-02')
+
 ####Research Question: Given all tweets relating to NYC, what determines the number of likes and retweets?###
 
 ## Siyun (words to vector)
@@ -40,12 +43,13 @@ View(rt)
 ## Rachel (sentiment analysis)
 # load library
 library(tidytext)
+library(lubridate)
 
 # split full_text column into separate words
-rt <- rt %>% unnest_tokens(word, full_text)
+rt2 <- rt %>% unnest_tokens(word, full_text)
 
 # inner join with bing lexicon
-rt_with_sentiment <- inner_join(rt, get_sentiments("bing"))
+rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
 
 # recode positive and negative sentiments as 1 or 0
 rt_with_sentiment <- rt_with_sentiment %>% 
@@ -54,8 +58,8 @@ rt_with_sentiment <- rt_with_sentiment %>%
     sentiment == 'negative' ~ 0))
 
 # mean sentiment per tweet
-rt_with_sentiment %>%
+rt_with_sentiment1 <- rt_with_sentiment %>%
   group_by(id) %>%
-  summarize(mean_sentiment = mean(sentiment))
+  summarise(mean_sentiment = mean(sentiment))
 
-
+joint_rt <- left_join(rt, rt_with_sentiment1, by = "id")

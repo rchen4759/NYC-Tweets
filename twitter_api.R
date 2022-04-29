@@ -35,6 +35,10 @@ auth_setup_default()
 rt <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
 View(rt)
 
+library(twitteR)
+
+search_tweet <- searchTwitter('nyu', since='2021-03-01', until='2021-03-02')
+
 ####Research Question: Given all tweets relating to X topic, what determines the number of likes and re-tweets?###
 
 ## Siyun (words to vector)
@@ -107,9 +111,198 @@ head(sort(NYC_cos_sim[,1], decreasing = TRUE), 5)
 
 
 
-######## sentiment by word2vec#######
-library(ROAuth)
-df_tweets <- twListToDF(search_tweets("#NYC", n = 1000, include_rts = FALSE))
+######## sentiment by bag of words#######
+library(tm)
+library(qdap)
+tweet_text <- tweet_text %>%
+  mutate(full_text = tolower(full_text))
+
+frequency <- freq_terms(tweet_text$full_text,
+                        top = 30, 
+                        stopwords = c(Top100Words, "nyc"),
+                        at.least = 3)
+
+plot(frequency)
+
+library(tm)  
+# function used to clean the corpus 
+clean_corpus <- function(corpus){
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, removeWords, stopwords("en"))
+}
+
+# building a corpus (collection of documents)
+tweets_source <- VectorSource(tweet_text$full_text)
+
+# make tweets_corpus
+tweets_corpus <- VCorpus(tweets_source)
+
+str(tweets_corpus[[15]])
+
+clean_corp <- clean_corpus(tweets_corpus)
+
+clean_corp[[227]][1]
+
+# original tweet
+tweet_text$full_text[227]
+
+# document-term matrix 
+tweets_dtm <- DocumentTermMatrix(clean_corp)
+tweets_m <- as.matrix(tweets_dtm)
+
+# review portion of the matrix 
+tweets_m[148:158, 10:22]
+
+### sentiment/words ####
+
+library(tidytext)
+library(lubridate)
+
+# split full_text column into separate words
+rt2 <- rt %>% unnest_tokens(word, full_text)
+
+# inner join with bing lexicon
+rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
+
+# recode positive and negative sentiments as 1 or 0
+rt_with_sentiment <- rt_with_sentiment %>% 
+  mutate(sentiment = case_when(
+    sentiment == 'positive' ~ 1,
+    sentiment == 'negative' ~ 0))
+
+# mean sentiment per tweet
+rt_with_sentiment1 <- rt_with_sentiment %>%
+  group_by(id) %>%
+  summarise(mean_sentiment = mean(sentiment))
+
+joint_rt <- left_join(rt, rt_with_sentiment1, by = "id")
+
+## word2vec###
+conv_fun <- function(x) iconv(x, "latin1", "ASCII", "")
+
+tweets_classified_1 <- joint_rt %>%
+  select(mean_sentiment, id, created_at, text,) %>%
+  dmap_at('text', conv_fun) %>%
+  mutate(sentiment = ifelse(mean_sentiment == 0, 0, 1))
+
+
+head(tweets_classified)
+
+tweets_classified <- separate(tweets_classified, created_at, c("date", "time"), sep = " ") %>%
+  select(-mean_sentiment)
+
+set.seed(1234)
+
+trainIndex <- createDataPartition(tweets_classified$sentiment, p = 0.8,
+                                  list = FALSE, 
+                                  times = 1)
+
+tweets_train <- tweets_classified[trainIndex, ]
+tweets_test <- tweets_classified[-trainIndex, ]
+
+# vectorization 
+prep_fun <- tolower 
+tok_fun <- word_tokenizer
+
+it_train <- itoken(tweets_train$text,
+                   preprocessor = prep_fun,
+                   tokenizer = tok_fun, 
+                   ids = tweets_train$id,
+                   progressbar = TRUE)
+
+it_test <- itoken(tweets_test$text,
+                  preprocessor = prep_fun,
+                  tokenizer = tok_fun, 
+                  ids = tweets_test$id,
+                  progressbar = TRUE)
+
+vocab <- create_vocabulary(it_train)
+vectorizer <- vocab_vectorizer(vocab)
+dtm_train <- create_dtm(it_train, vectorizer)
+
+# definite tf-idf model 
+tfidf <- TfIdf$new()
+
+# fit model to train data and transform 
+dtm_train_tfidf <- fit_transform(dtm_train, tfidf)
+
+# apply pre-trained tf-idf transformation to test data 
+dtm_test_tfidf <- create_dtm(it_test, vectorizer) %>%
+  transform(tfidf)
+
+# train the word2vec model 
+glmnet_class <- cv.glmnet(x = dtm_train_tfidf, 
+                          y = tweets_train[['sentiment']],
+                          family = 'binomial',
+                          alpha = 1,
+                          type.measure= "auc",
+                          nfolds = 5,
+                          thresh = 1e-3,
+                          maxit = 1e3)
+
+plot(glmnet_class)
+
+preds_tweets <- predict(glmnet_class, dtm_test_tfidf, type = 'response')[,1]
+
+
+# analyze sentiment by word2vec model 
+df_tweets <- tweets_classified_1 
+
+it_tweets <- itoken(df_tweets$text,
+                    preprocessor = prep_fun,
+                    tokenizer = tok_fun,
+                    ids = df_tweets$id,
+                    progressbar = TRUE)
+
+dtm_tweets <- create_dtm(it_tweets, vectorizer)
+
+# transforming data with tf-idf
+dtm_tweets_tfidf <- fit_transform(dtm_tweets, tfidf)
+
+# predict probabilities of positiveness
+preds_tweets <- predict(glmnet_class, dtm_tweets_tfidf, type = 'response')[ ,1]
+
+# adding rates to initial dataset
+df_tweets$sentiment <- preds_tweets
+
+# color palette
+cols <- c("#ce472e", "#f05336", "#ffd73e", "#eec73a", "#4ab04a")
+
+set.seed(932)
+samp_ind <- sample(c(1:nrow(df_tweets)), nrow(df_tweets) * 0.1) # 10% for labeling
+
+# plotting
+ggplot(df_tweets, aes(x = created_at, y = sentiment, color = sentiment)) +
+  theme_minimal() +
+  scale_color_gradientn(colors = cols, limits = c(0, 1),
+                        breaks = seq(0, 1, by = 1/4),
+                        labels = c("0", round(1/4*1, 1), round(1/4*2, 1), round(1/4*3, 1), round(1/4*4, 1)),
+                        guide = guide_colourbar(ticks = T, nbin = 50, barheight = .5, label = T, barwidth = 10)) +
+  geom_point(aes(color = sentiment), alpha = 0.8) +
+  geom_hline(yintercept = 0.65, color = "#4ab04a", size = 1.5, alpha = 0.6, linetype = "longdash") +
+  geom_hline(yintercept = 0.35, color = "#f05336", size = 1.5, alpha = 0.6, linetype = "longdash") +
+  geom_smooth(size = 1.2, alpha = 0.2) +
+  geom_label_repel(data = df_tweets[samp_ind, ],
+                   aes(label = round(sentiment, 2)),
+                   fontface = 'bold',
+                   size = 2.5,
+                   max.iter = 100) +
+  theme(legend.position = 'bottom',
+        legend.direction = "horizontal",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(size = 20, face = "bold", vjust = 2, color = 'black', lineheight = 0.8),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 8, face = "bold", color = 'black'),
+        axis.text.x = element_text(size = 8, face = "bold", color = 'black')) +
+  ggtitle("Tweets Sentiment rate (probability of positiveness)")
+
+
+
+
 
 ## Duja (topic modeling)
 
