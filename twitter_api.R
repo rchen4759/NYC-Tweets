@@ -1,8 +1,5 @@
 ## reference to this website: https://www.r-bloggers.com/2022/03/how-to-get-twitter-data-using-r/
 
-## install rtweet from CRAN
-install.packages("rtweet")
-## OR
 ## install remotes package if it's not already
 if (!requireNamespace("remotes", quietly = TRUE)) {
   install.packages("remotes")
@@ -301,8 +298,8 @@ ggplot(df_tweets, aes(x = created_at, y = sentiment, color = sentiment)) +
   ggtitle("Tweets Sentiment rate (probability of positiveness)")
 
 
-
-
+## clean tibble 
+unnested <- rt %>% unnest(metadata)
 
 ## Duja (topic modeling)
 
