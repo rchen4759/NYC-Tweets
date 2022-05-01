@@ -13,9 +13,6 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 ## install dev version of rtweet from github
 remotes::install_github("ropensci/rtweet")
 
-## load rtweet package
-library(rtweet)
-
 ## load rtweet
 library(rtweet)
 ## load the tidyverse
@@ -33,23 +30,23 @@ auth_get()
 auth_setup_default()
 
 ##EXTRACTING DATA WITH NYC HASHTAG
-rt_30 <- search_tweets("#NYC", n = 100, include_rts = FALSE)
+rt_31 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
 
 ##GETTING AND CLEANING USER INFO
 
-users <- users_data(rt_30) %>% 
+users <- users_data(rt_31) %>% 
   select(location, description, protected, followers_count, friends_count,
          listed_count, created_at, verified, statuses_count)
 
 ##MERGING TWEET DATA WITH USER DATA
-rt_30 <- cbind(rt_30,users)
+rt_31 <- cbind(rt_31,users)
 
 
 
 ####CLEANING RT
 
 #unnest metadata and filter out non-english tweets
-rt <- rt_30 %>% 
+rt <- rt_31 %>% 
   unnest(metadata) %>% 
   filter(iso_language_code=="en")
 # rt <- rt %>% 
@@ -100,23 +97,25 @@ rt <- rt %>%
          -media_adj, -in_reply_to_status_id, -in_reply_to_status_id_str,
          -in_reply_to_user_id, -in_reply_to_user_id_str)
 
+##SAVING TIBBLE
+write_csv(rt, "../MDML_Project/rt0431_18K.csv")
 ###---------------------------------------------------------------------##
 
 ## Duja (topic modeling)
-install.packages('cld3')
+#install.packages('cld3')
 library(cld3)
 #keeping only english languate tweets
-rt <- rt %>% 
-  mutate(lang= detect_language(full_text)) %>% 
-  filter(lang=='en')
+# rt <- rt %>% 
+#   mutate(lang= detect_language(full_text)) %>% 
+#   filter(lang=='en')
 #topic modelling
-install.packages('topicmodels')
+#install.packages('topicmodels')
 library(topicmodels)
-install.packages('tm')
+#install.packages('tm')
 library(tm)
-install.packages("tidytext")
+#install.packages("tidytext")
 library(tidytext)
-install.packages("reshape2")
+#install.packages("reshape2")
 library(reshape2)
 
 corpus <- Corpus(VectorSource(rt$full_text))
