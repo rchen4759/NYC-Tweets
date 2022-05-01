@@ -1,3 +1,6 @@
+####Research Question: Given all tweets relating to X topic, what determines the number of likes and retweets?###
+
+
 ## reference to this website: https://www.r-bloggers.com/2022/03/how-to-get-twitter-data-using-r/
 
 ## install rtweet from CRAN
@@ -71,10 +74,6 @@ rt$media=rt$media-rt$media_adj
 
 
 
-
-####Research Question: Given all tweets relating to X topic, what determines the number of likes and retweets?###
-
-## Siyun (words to vector)
 
 
 
