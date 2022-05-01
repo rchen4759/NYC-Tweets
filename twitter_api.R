@@ -35,7 +35,7 @@ token <- create_token(
   consumer_secret = api_secret_key)
 auth_get()
 auth_setup_default()
-rt <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
+rt_1 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
 View(rt)
 
 tweets2 <- search_tweets("#NYC", n = 1000, include_rts = FALSE)

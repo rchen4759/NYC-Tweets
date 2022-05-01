@@ -13,9 +13,6 @@ if (!requireNamespace("remotes", quietly = TRUE)) {
 ## install dev version of rtweet from github
 remotes::install_github("ropensci/rtweet")
 
-## load rtweet package
-library(rtweet)
-
 ## load rtweet
 library(rtweet)
 ## load the tidyverse
@@ -31,16 +28,34 @@ token <- create_token(
   consumer_secret = api_secret_key)
 auth_get()
 auth_setup_default()
-rt_30 <- search_tweets("#NYC", n = 100, include_rts = FALSE)
+
+##EXTRACTING DATA WITH NYC HASHTAG
+rt_31 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
+
+##GETTING AND CLEANING USER INFO
+
+users <- users_data(rt_31) %>% 
+  select(location, description, protected, followers_count, friends_count,
+         listed_count, created_at, verified, statuses_count)
+
+##MERGING TWEET DATA WITH USER DATA
+rt_31 <- cbind(rt_31,users)
+
+
 
 ####CLEANING RT
 
 #unnest metadata and filter out non-english tweets
-rt <- rt_30 %>% unnest(metadata) %>% 
+rt <- rt_31 %>% 
+  unnest(metadata) %>% 
   filter(iso_language_code=="en")
+# rt <- rt %>% 
+#   unnest(geo, names_repair = "minimal") 
+# rt <- rt %>% 
+#   unnest(quoted_status=, names_repair = "minimal")
 
 
-#converting list of entities into usable columns
+## TURNING ENTITIES COLUMN INTO USABLE INFO
 
 hashtags=sapply(rt$entities,"[",1)
 rt$hashtags <- sapply(hashtags, nrow)
@@ -70,28 +85,37 @@ for (i in 1:nrow(rt)) {
 }
 rt$media=rt$media-rt$media_adj
 
+##DROPPING UNNECESSARY COLUMNS
+rt <- rt %>% 
+  select(-id, -id_str, -entities, -iso_language_code, -source,
+         -geo, -coordinates, -place, -favorited, -retweeted,
+         -lang, -quoted_status_id, -quoted_status_id_str, 
+         -quoted_status, -favorited_by, -scopes, -display_text_width,
+         -retweeted_status, -quoted_status_permalink, -query,
+         -withheld_copyright,-withheld_in_countries, -withheld_scope,
+         -possibly_sensitive_appealable, -user_mentions_adj, -urls_adj,
+         -media_adj, -in_reply_to_status_id, -in_reply_to_status_id_str,
+         -in_reply_to_user_id, -in_reply_to_user_id_str)
 
-
-
-
-
-
+##SAVING TIBBLE
+write_csv(rt, "../MDML_Project/rt0431_18K.csv")
+###---------------------------------------------------------------------##
 
 ## Duja (topic modeling)
-install.packages('cld3')
+#install.packages('cld3')
 library(cld3)
 #keeping only english languate tweets
-rt <- rt %>% 
-  mutate(lang= detect_language(full_text)) %>% 
-  filter(lang=='en')
+# rt <- rt %>% 
+#   mutate(lang= detect_language(full_text)) %>% 
+#   filter(lang=='en')
 #topic modelling
-install.packages('topicmodels')
+#install.packages('topicmodels')
 library(topicmodels)
-install.packages('tm')
+#install.packages('tm')
 library(tm)
-install.packages("tidytext")
+#install.packages("tidytext")
 library(tidytext)
-install.packages("reshape2")
+#install.packages("reshape2")
 library(reshape2)
 
 corpus <- Corpus(VectorSource(rt$full_text))
@@ -120,7 +144,6 @@ ap_top_terms %>%
   facet_wrap(~ topic, scales = "free") +
   scale_y_reordered()
 
-## Rachel (sentiment analysis)
 
 
 
