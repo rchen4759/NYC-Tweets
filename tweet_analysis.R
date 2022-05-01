@@ -10,9 +10,8 @@ library(word2vec)
 library(lubridate)
 
 # load data from csv 
-tweets <- read_csv("rtdata0430.csv")
-weather <- read_csv("NYC_weather.csv")
-
+tweets <- read_csv("../MDML_Project/data/CLEAN_rt0431_18K.csv")
+weather <- read_csv("data/NYC_weather.csv")
 # clean and only keep useful columns 
 tweets <- separate(tweets, created_at, c("date", "time"), sep = " ")
 
