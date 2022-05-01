@@ -13,14 +13,20 @@ remotes::install_github("ashoksiri/rtweet")
 
 ## load rtweet package
 library(rtweet)
+#library(twitteR)
 
 ## load the tidyverse
 library(tidyverse)
 library(tidytext)
 
 ## store api keys 
-api_key <- '8rQ9WEkQYSE2wE5SsdBLGhfq8'
-api_secret_key <- 'Nsp0Mh2o0rKnvQDzZLLn6QG6Op3yuiVcbP0aQZVMK6NvW2UonZ'
+api_key <- '1Wkz19N5QhyUk2HLFOCVJhxuK'
+api_secret_key <- 'ArnlXexbu80oU4ZmtxOxo4GtvtQq9LKS85o9xPOjHo5LeSIytd'
+access_token <- '1516117979804672015-vYYI6UcNpfc1hiUk9j97mhqCZUVomk'
+access_secret <- '41iggfv9NZ4ANg9QLQpCJVs5IXuaiCChrtnb7p3y3kCP2'
+
+
+#setup_twitter_oauth(api_key, api_secret_key, access_token, access_secret)
 
 ## authenticate via web browser
 token <- create_token(
@@ -29,7 +35,71 @@ token <- create_token(
   consumer_secret = api_secret_key)
 auth_get()
 auth_setup_default()
-rt <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
+tweets1 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
+
+users <- users_data(tweets1) %>% 
+  select(location, description, protected, followers_count, friends_count,
+         listed_count, created_at, verified, statuses_count)
+
+##MERGING TWEET DATA WITH USER DATA
+tweets_user <- cbind(tweets1,users)
+
+#unnest metadata and filter out non-english tweets
+tweets1 <- tweets_user %>% 
+  unnest(metadata) %>% 
+  filter(iso_language_code=="en")
+# rt <- rt %>% 
+#   unnest(geo, names_repair = "minimal") 
+# rt <- rt %>% 
+#   unnest(quoted_status=, names_repair = "minimal")
+
+
+## TURNING ENTITIES COLUMN INTO USABLE INFO
+
+hashtags=sapply(tweets1$entities,"[",1)
+tweets1$hashtags <- sapply(hashtags, nrow)
+
+user_mentions=sapply(tweets1$entities,"[",3)
+tweets1$user_mentions <- sapply(user_mentions, nrow) # DEAL WITH NAs
+tweets1$user_mentions_adj=c()
+for (i in 1:nrow(tweets1)) {
+  tweets1$user_mentions_adj[i]=as.numeric(is.na(user_mentions[[i]][1]))
+}
+tweets1$user_mentions=tweets1$user_mentions-tweets1$user_mentions_adj
+
+
+urls=sapply(tweets1$entities,"[",4)
+tweets1$urls <- sapply(urls, nrow) # DEAL WITH NAs
+tweets1$urls_adj=c()
+for (i in 1:nrow(tweets1)) {
+  tweets1$urls_adj[i]=as.numeric(is.na(urls[[i]][1]))
+}
+tweets1$urls=tweets1$urls-tweets1$urls_adj
+
+media=sapply(tweets1$entities,"[",5)
+tweets1$media <- sapply(media, nrow)
+tweets1$media_adj=c()
+for (i in 1:nrow(rt)) {
+  tweets1$media_adj[i]=as.numeric(is.na(media[[i]][1]))
+}
+tweets1$media=tweets1$media-tweets1$media_adj
+
+##DROPPING UNNECESSARY COLUMNS
+tweets1 <- tweets1 %>% 
+  select(-id, -id_str, -entities, -iso_language_code, -source,
+         -geo, -coordinates, -place, -favorited, -retweeted,
+         -lang, -quoted_status_id, -quoted_status_id_str, 
+         -quoted_status, -favorited_by, -scopes, -display_text_width,
+         -retweeted_status, -quoted_status_permalink, -query,
+         -withheld_copyright,-withheld_in_countries, -withheld_scope,
+         -possibly_sensitive_appealable, -user_mentions_adj, -urls_adj,
+         -media_adj, -in_reply_to_status_id, -in_reply_to_status_id_str,
+         -in_reply_to_user_id, -in_reply_to_user_id_str)
+
+##SAVING TIBBLE
+write_csv(tweets1, "../MDML_Project/CLEAN_05.01.22-18K.csv")
+
+
 View(rt)
 
 tweets2 <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
@@ -40,7 +110,6 @@ rt <- apply(rt,2,as.character)
 write.csv(rt, "2022.04.28.csv")
 
 
-library(twitteR)
 
 search_tweet <- searchTwitter('nyu', since='2021-03-01', until='2021-03-02')
 
@@ -116,7 +185,6 @@ NYC = word_vectors["NYC", , drop=FALSE]
 
 NYC_cos_sim <- sim2(x=word_vectors, y = NYC, method = "cosine", norm = "l2")
 head(sort(NYC_cos_sim[,1], decreasing = TRUE), 5)
-
 
 
 ######## sentiment by bag of words#######
