@@ -35,7 +35,7 @@ rt_31 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
 ##GETTING AND CLEANING USER INFO
 
 users <- users_data(rt_31) %>% 
-  select(location, description, protected, followers_count, friends_count,
+  select(id, location, description, protected, followers_count, friends_count,
          listed_count, created_at, verified, statuses_count)
 
 ##MERGING TWEET DATA WITH USER DATA
