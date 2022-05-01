@@ -32,9 +32,20 @@ auth_setup_default()
 rt <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
 View(rt)
 
+tweets2 <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
+
+tweets3 <- search_tweets("#NYC", n = 1500, include_rts = FALSE)
+
+rt <- apply(rt,2,as.character)
+write.csv(rt, "2022.04.28.csv")
+
+
 library(twitteR)
 
 search_tweet <- searchTwitter('nyu', since='2021-03-01', until='2021-03-02')
+
+apply(rt,2,as.character)
+write.csv(rt, file = "MDML_Project\\df2022.04.28.csv")
 
 ####Research Question: Given all tweets relating to X topic, what determines the number of likes and re-tweets?###
 
@@ -121,7 +132,6 @@ frequency <- freq_terms(tweet_text$full_text,
 
 plot(frequency)
 
-library(tm)  
 # function used to clean the corpus 
 clean_corpus <- function(corpus){
   corpus <- tm_map(corpus, stripWhitespace)
@@ -174,7 +184,8 @@ rt_with_sentiment1 <- rt_with_sentiment %>%
   group_by(id) %>%
   summarise(mean_sentiment = mean(sentiment))
 
-joint_rt <- left_join(rt, rt_with_sentiment1, by = "id")
+joint_rt <- left_join(rt, rt_with_sentiment1, by = "id") %>%
+  drop_na(mean_sentiment)
 
 ## word2vec###
 conv_fun <- function(x) iconv(x, "latin1", "ASCII", "")
