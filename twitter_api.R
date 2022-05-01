@@ -13,14 +13,20 @@ remotes::install_github("ashoksiri/rtweet")
 
 ## load rtweet package
 library(rtweet)
+#library(twitteR)
 
 ## load the tidyverse
 library(tidyverse)
 library(tidytext)
 
 ## store api keys 
-api_key <- '8rQ9WEkQYSE2wE5SsdBLGhfq8'
-api_secret_key <- 'Nsp0Mh2o0rKnvQDzZLLn6QG6Op3yuiVcbP0aQZVMK6NvW2UonZ'
+api_key <- '1Wkz19N5QhyUk2HLFOCVJhxuK'
+api_secret_key <- 'ArnlXexbu80oU4ZmtxOxo4GtvtQq9LKS85o9xPOjHo5LeSIytd'
+access_token <- '1516117979804672015-vYYI6UcNpfc1hiUk9j97mhqCZUVomk'
+access_secret <- '41iggfv9NZ4ANg9QLQpCJVs5IXuaiCChrtnb7p3y3kCP2'
+
+
+#setup_twitter_oauth(api_key, api_secret_key, access_token, access_secret)
 
 ## authenticate via web browser
 token <- create_token(
@@ -40,7 +46,6 @@ rt <- apply(rt,2,as.character)
 write.csv(rt, "2022.04.28.csv")
 
 
-library(twitteR)
 
 search_tweet <- searchTwitter('nyu', since='2021-03-01', until='2021-03-02')
 
@@ -116,7 +121,6 @@ NYC = word_vectors["NYC", , drop=FALSE]
 
 NYC_cos_sim <- sim2(x=word_vectors, y = NYC, method = "cosine", norm = "l2")
 head(sort(NYC_cos_sim[,1], decreasing = TRUE), 5)
-
 
 
 ######## sentiment by bag of words#######
