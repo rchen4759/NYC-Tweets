@@ -40,7 +40,16 @@ rt <- rt %>%
   distinct(full_text, .keep_all = TRUE) #46229left.
 sum(duplicated(rt[,2])) #all good!
 
+<<<<<<< HEAD
 
+=======
+## accessing and merging weather data
+weather <- read_csv("data/NYC_weather.csv")
+weather2 <- read_csv("data/weather2.csv")
+weather <- rbind(weather, weather2)
+weather <- weather %>%
+  distinct(dt, main)
+>>>>>>> d3df24a07ba76f67b762ec31f50d48a151ef3ea7
 
 
 ## accessing, cleaning, and merging weather data
