@@ -15,6 +15,13 @@ tweets1 <- read_csv("../MDML_Project/data/CLEAN_rt_file_10K.csv")
 tweets2 <- read_csv("../MDML_Project/data/CLEAN_05.01.22-18K.csv")
 tweets3 <- read_csv("../MDML_Project/data/CLEAN_rt_file_15K.csv")
 tweets4 <- read_csv("../MDML_Project/data/CLEAN_rt_file_15K_2.csv")
+tweets5 <- read_csv("../MDML_Project/data/CLEAN_10:35pm.csv")
+tweets6 <- read_csv("../MDML_Project/data/CLEAN_10:50pm.csv")
+# data from nyc
+tweets7 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
+# data from new york city 
+tweets8 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity_data.csv")
+
 
 # bind the data and remove the duplicated entries (based on full_text)
 rt <- bind_rows(tweets,tweets1)
@@ -24,9 +31,18 @@ sum(duplicated(rt[,2])) #23304
 rt <- bind_rows(rt,tweets3)
 sum(duplicated(rt[,2])) #15926
 rt <- bind_rows(rt,tweets4)
+sum(duplicated(rt[,2])) 
+rt <- bind_rows(rt,tweets5)
+sum(duplicated(rt[,2])) 
+rt <- bind_rows(rt,tweets6)
+sum(duplicated(rt[,2])) 
+rt <- bind_rows(rt,tweets7)
+sum(duplicated(rt[,2])) 
+rt <- bind_rows(rt,tweets8)
+sum(duplicated(rt[,2])) 
 
 rt <- rt %>% 
-  distinct(full_text, .keep_all = TRUE) #15324 left.
+  distinct(full_text, .keep_all = TRUE) #46112left.
 sum(duplicated(rt[,2]))
 
 ## accessing and merging weather data
