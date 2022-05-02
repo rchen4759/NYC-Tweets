@@ -49,7 +49,10 @@ sum(duplicated(rt[,2]))
 
 ## accessing and merging weather data
 weather <- read_csv("data/NYC_weather.csv")
-
+weather2 <- read_csv("data/weather2.csv")
+weather <- rbind(weather, weather2)
+weather <- weather %>%
+  distinct(dt, main)
 
 # clean and only keep useful columns 
 tweets <- separate(tweets, created_at, c("date", "time"), sep = " ")
