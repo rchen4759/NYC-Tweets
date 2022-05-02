@@ -25,37 +25,46 @@ tweets9 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
 
 # bind the data and remove the duplicated entries (based on full_text)
 rt <- bind_rows(tweets,tweets1)
-sum(duplicated(rt[,2])) #8264 dupes
+#sum(duplicated(rt[,2])) #8264 dupes
 rt <- bind_rows(rt,tweets2)
-sum(duplicated(rt[,2])) #23304
 rt <- bind_rows(rt,tweets3)
-sum(duplicated(rt[,2])) #15926
 rt <- bind_rows(rt,tweets4)
-sum(duplicated(rt[,2])) 
 rt <- bind_rows(rt,tweets5)
-sum(duplicated(rt[,2])) 
 rt <- bind_rows(rt,tweets6)
-sum(duplicated(rt[,2])) 
 rt <- bind_rows(rt,tweets7)
-sum(duplicated(rt[,2])) 
 rt <- bind_rows(rt,tweets8)
-sum(duplicated(rt[,2])) 
 rt <- bind_rows(rt,tweets9)
-sum(duplicated(rt[,2])) 
 
+##REMOVING DUPLICATE TWEETS
 rt <- rt %>% 
   distinct(full_text, .keep_all = TRUE) #46229left.
-sum(duplicated(rt[,2]))
-
-## accessing and merging weather data
-weather <- read_csv("data/NYC_weather.csv")
+sum(duplicated(rt[,2])) #all good!
 
 
-# clean and only keep useful columns 
-tweets <- separate(tweets, created_at, c("date", "time"), sep = " ")
 
-# add in weather data from openweather API
 
+## accessing, cleaning, and merging weather data
+weather <- read_csv("data/NYC_weather.csv") %>% 
+  mutate(day=date(dt),
+         hour=hour(dt)) %>% 
+  rename(weather_desc=description) %>% 
+  select(-`...1`, -dt, -main)
+
+# clean, get day and hour in rt, and get rid of more useless columns 
+rt <-  rt %>%
+  mutate(day=date(created_at),
+         hour=hour(created_at),
+         weekday=weekdays(created_at),
+         period=case_when(hour <5 ~1,
+                          hour <9 & hour>=5 ~2,
+                          hour <13 & hour>=9 ~3,
+                          hour <17 & hour>=13 ~4,
+                          hour <21 & hour>=17 ~5,
+                          hour <=24 & hour>=21 ~6,)) %>% 
+  select(-created_at, -created_at.1, -truncated,-contributors,
+         -protected, -id.1)
+#joining weather data
+rt <- left_join(rt,weather, by=c("day","hour"))
 
 
 # topic modeling 
