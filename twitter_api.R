@@ -104,51 +104,51 @@ View(rt)
 
 tweets2 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
 
-rt5 <- search_tweets("nyc", n = 18000, include_rts = FALSE)
+rt7 <- search_tweets("new york city", n = 18000, include_rts = FALSE)
 
 ##GETTING AND CLEANING USER INFO
 
-users5 <- users_data(rt5) 
-users5 <- users5 %>% 
+users7 <- users_data(rt7) 
+users7 <- users7 %>% 
   select(id, location, description, protected, followers_count, friends_count,
          listed_count, created_at, verified, statuses_count)
 
-rt_5 <- cbind(rt5,users5)
+rt_7 <- cbind(rt7,users7)
 
-rt5 <- rt_5 %>% 
+rt7 <- rt_7 %>% 
   unnest(metadata) %>% 
   filter(iso_language_code=="en")
 
-hashtags=sapply(rt5$entities,"[",1)
-rt5$hashtags <- sapply(hashtags, nrow)
+hashtags=sapply(rt7$entities,"[",1)
+rt7$hashtags <- sapply(hashtags, nrow)
 
-user_mentions=sapply(rt5$entities,"[",3)
-rt5$user_mentions <- sapply(user_mentions, nrow) # DEAL WITH NAs
-rt5$user_mentions_adj=c()
-for (i in 1:nrow(rt4)) {
-  rt5$user_mentions_adj[i]=as.numeric(is.na(user_mentions[[i]][1]))
+user_mentions=sapply(rt7$entities,"[",3)
+rt7$user_mentions <- sapply(user_mentions, nrow) # DEAL WITH NAs
+rt7$user_mentions_adj=c()
+for (i in 1:nrow(rt7)) {
+  rt7$user_mentions_adj[i]=as.numeric(is.na(user_mentions[[i]][1]))
 }
-rt5$user_mentions=rt5$user_mentions-rt5$user_mentions_adj
+rt7$user_mentions=rt7$user_mentions-rt7$user_mentions_adj
 
 
-urls=sapply(rt5$entities,"[",4)
-rt5$urls <- sapply(urls, nrow) # DEAL WITH NAs
-rt5$urls_adj=c()
+urls=sapply(rt7$entities,"[",4)
+rt7$urls <- sapply(urls, nrow) # DEAL WITH NAs
+rt7$urls_adj=c()
 for (i in 1:nrow(rt)) {
-  rt5$urls_adj[i]=as.numeric(is.na(urls[[i]][1]))
+  rt7$urls_adj[i]=as.numeric(is.na(urls[[i]][1]))
 }
-rt5$urls=rt5$urls-rt5$urls_adj
+rt7$urls=rt7$urls-rt7$urls_adj
 
-media=sapply(rt5$entities,"[",5)
-rt5$media <- sapply(media, nrow)
-rt5$media_adj=c()
-for (i in 1:nrow(rt5)) {
-  rt5$media_adj[i]=as.numeric(is.na(media[[i]][1]))
+media=sapply(rt7$entities,"[",5)
+rt7$media <- sapply(media, nrow)
+rt7$media_adj=c()
+for (i in 1:nrow(rt7)) {
+  rt7$media_adj[i]=as.numeric(is.na(media[[i]][1]))
 }
-rt5$media=rt5$media-rt5$media_adj
+rt7$media=rt7$media-rt7$media_adj
 
 ##DROPPING UNNECESSARY COLUMNS
-rt5 <- rt5 %>% 
+rt7 <- rt7 %>% 
   select(-id, -id_str, -entities, -iso_language_code, -source,
          -geo, -coordinates, -place, -favorited, -retweeted,
          -lang, -quoted_status_id, -quoted_status_id_str, 
@@ -160,7 +160,7 @@ rt5 <- rt5 %>%
          -in_reply_to_user_id, -in_reply_to_user_id_str)
 
 ##SAVING TIBBLE
-write_csv(rt5, "../MDML_Project/data/CLEAN_nyc_data.csv")
+write_csv(rt7, "../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
 
 
 

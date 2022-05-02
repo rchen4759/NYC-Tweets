@@ -21,7 +21,7 @@ tweets6 <- read_csv("../MDML_Project/data/CLEAN_10:50pm.csv")
 tweets7 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
 # data from new york city 
 tweets8 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity_data.csv")
-
+tweets9 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
 
 # bind the data and remove the duplicated entries (based on full_text)
 rt <- bind_rows(tweets,tweets1)
@@ -40,9 +40,11 @@ rt <- bind_rows(rt,tweets7)
 sum(duplicated(rt[,2])) 
 rt <- bind_rows(rt,tweets8)
 sum(duplicated(rt[,2])) 
+rt <- bind_rows(rt,tweets9)
+sum(duplicated(rt[,2])) 
 
 rt <- rt %>% 
-  distinct(full_text, .keep_all = TRUE) #46112left.
+  distinct(full_text, .keep_all = TRUE) #46229left.
 sum(duplicated(rt[,2]))
 
 ## accessing and merging weather data
