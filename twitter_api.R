@@ -37,15 +37,15 @@ auth_get()
 auth_setup_default()
 tweets1 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
 
-users <- users_data(tweets1) %>% 
+users2 <- users_data(tweets2) %>% 
   select(location, description, protected, followers_count, friends_count,
          listed_count, created_at, verified, statuses_count)
 
 ##MERGING TWEET DATA WITH USER DATA
-tweets_user <- cbind(tweets1,users)
+tweets_user <- cbind(tweets2,users)
 
 #unnest metadata and filter out non-english tweets
-tweets1 <- tweets_user %>% 
+tweets2 <- tweets_user %>% 
   unnest(metadata) %>% 
   filter(iso_language_code=="en")
 # rt <- rt %>% 
@@ -56,36 +56,36 @@ tweets1 <- tweets_user %>%
 
 ## TURNING ENTITIES COLUMN INTO USABLE INFO
 
-hashtags=sapply(tweets1$entities,"[",1)
-tweets1$hashtags <- sapply(hashtags, nrow)
+hashtags=sapply(tweets2$entities,"[",1)
+tweets2$hashtags <- sapply(hashtags, nrow)
 
-user_mentions=sapply(tweets1$entities,"[",3)
-tweets1$user_mentions <- sapply(user_mentions, nrow) # DEAL WITH NAs
-tweets1$user_mentions_adj=c()
-for (i in 1:nrow(tweets1)) {
-  tweets1$user_mentions_adj[i]=as.numeric(is.na(user_mentions[[i]][1]))
+user_mentions=sapply(tweets2$entities,"[",3)
+tweets2$user_mentions <- sapply(user_mentions, nrow) # DEAL WITH NAs
+tweets2$user_mentions_adj=c()
+for (i in 1:nrow(tweets2)) {
+  tweets2$user_mentions_adj[i]=as.numeric(is.na(user_mentions[[i]][1]))
 }
-tweets1$user_mentions=tweets1$user_mentions-tweets1$user_mentions_adj
+tweets2$user_mentions=tweets2$user_mentions-tweets2$user_mentions_adj
 
 
 urls=sapply(tweets1$entities,"[",4)
-tweets1$urls <- sapply(urls, nrow) # DEAL WITH NAs
-tweets1$urls_adj=c()
+tweets2$urls <- sapply(urls, nrow) # DEAL WITH NAs
+tweets2$urls_adj=c()
 for (i in 1:nrow(tweets1)) {
-  tweets1$urls_adj[i]=as.numeric(is.na(urls[[i]][1]))
+  tweets2$urls_adj[i]=as.numeric(is.na(urls[[i]][1]))
 }
-tweets1$urls=tweets1$urls-tweets1$urls_adj
+tweets2$urls=tweets2$urls-tweets2$urls_adj
 
-media=sapply(tweets1$entities,"[",5)
-tweets1$media <- sapply(media, nrow)
-tweets1$media_adj=c()
+media=sapply(tweets2$entities,"[",5)
+tweets2$media <- sapply(media, nrow)
+tweets2$media_adj=c()
 for (i in 1:nrow(rt)) {
   tweets1$media_adj[i]=as.numeric(is.na(media[[i]][1]))
 }
-tweets1$media=tweets1$media-tweets1$media_adj
+tweets2$media=tweets2$media-tweets2$media_adj
 
 ##DROPPING UNNECESSARY COLUMNS
-tweets1 <- tweets1 %>% 
+tweets2 <- tweets2 %>% 
   select(-id, -id_str, -entities, -iso_language_code, -source,
          -geo, -coordinates, -place, -favorited, -retweeted,
          -lang, -quoted_status_id, -quoted_status_id_str, 
@@ -102,13 +102,71 @@ write_csv(tweets1, "../MDML_Project/CLEAN_05.01.22-18K.csv")
 
 View(rt)
 
-tweets2 <- search_tweets("#NYC", n = 1000, include_rts = FALSE)
+tweets2 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
 
-tweets3 <- search_tweets("#NYC", n = 1500, include_rts = FALSE)
+rt4 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
+
+##GETTING AND CLEANING USER INFO
+
+users4 <- users_data(rt4) 
+users4 <- users4 %>% 
+  select(id, location, description, protected, followers_count, friends_count,
+         listed_count, created_at, verified, statuses_count)
+
+rt_4 <- cbind(rt4,users4)
+
+rt4 <- rt_4 %>% 
+  unnest(metadata) %>% 
+  filter(iso_language_code=="en")
+
+hashtags=sapply(rt4$entities,"[",1)
+rt4$hashtags <- sapply(hashtags, nrow)
+
+user_mentions=sapply(rt4$entities,"[",3)
+rt4$user_mentions <- sapply(user_mentions, nrow) # DEAL WITH NAs
+rt4$user_mentions_adj=c()
+for (i in 1:nrow(rt4)) {
+  rt4$user_mentions_adj[i]=as.numeric(is.na(user_mentions[[i]][1]))
+}
+rt4$user_mentions=rt4$user_mentions-rt4$user_mentions_adj
+
+
+urls=sapply(rt4$entities,"[",4)
+rt4$urls <- sapply(urls, nrow) # DEAL WITH NAs
+rt4$urls_adj=c()
+for (i in 1:nrow(rt)) {
+  rt4$urls_adj[i]=as.numeric(is.na(urls[[i]][1]))
+}
+rt4$urls=rt4$urls-rt4$urls_adj
+
+media=sapply(rt4$entities,"[",5)
+rt4$media <- sapply(media, nrow)
+rt4$media_adj=c()
+for (i in 1:nrow(rt4)) {
+  rt4$media_adj[i]=as.numeric(is.na(media[[i]][1]))
+}
+rt4$media=rt4$media-rt4$media_adj
+
+##DROPPING UNNECESSARY COLUMNS
+rt4 <- rt4 %>% 
+  select(-id, -id_str, -entities, -iso_language_code, -source,
+         -geo, -coordinates, -place, -favorited, -retweeted,
+         -lang, -quoted_status_id, -quoted_status_id_str, 
+         -quoted_status, -favorited_by, -scopes, -display_text_width,
+         -retweeted_status, -quoted_status_permalink, -query,
+         -withheld_copyright,-withheld_in_countries, -withheld_scope,
+         -possibly_sensitive_appealable, -user_mentions_adj, -urls_adj,
+         -media_adj, -in_reply_to_status_id, -in_reply_to_status_id_str,
+         -in_reply_to_user_id, -in_reply_to_user_id_str)
+
+##SAVING TIBBLE
+write_csv(rt4, "../MDML_Project/CLEAN_10:50pm.csv")
+
+
+
 
 rt <- apply(rt,2,as.character)
 write.csv(rt, "2022.04.28.csv")
-
 
 
 search_tweet <- searchTwitter('nyu', since='2021-03-01', until='2021-03-02')
