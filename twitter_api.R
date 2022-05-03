@@ -324,12 +324,12 @@ tweets_classified_1 <- joint_rt %>%
 
 head(tweets_classified)
 
-tweets_classified <- separate(tweets_classified, created_at, c("date", "time"), sep = " ") %>%
+tweets_classified <- separate(tweets_classified_1, created_at, c("date", "time"), sep = " ") %>%
   select(-mean_sentiment)
 
 set.seed(1234)
 
-trainIndex <- createDataPartition(tweets_classified$sentiment, p = 0.8,
+trainIndex <- createDataPartition(tweets_classified_1$sentiment, p = 0.8,
                                   list = FALSE, 
                                   times = 1)
 
@@ -397,6 +397,7 @@ dtm_tweets_tfidf <- fit_transform(dtm_tweets, tfidf)
 
 # predict probabilities of positiveness
 preds_tweets <- predict(glmnet_class, dtm_tweets_tfidf, type = 'response')[ ,1]
+data.frame(preds_tweets)
 
 # adding rates to initial dataset
 df_tweets$sentiment <- preds_tweets
