@@ -104,20 +104,17 @@ ap_top_terms %>%
   facet_wrap(~ topic, scales = "free") +
   scale_y_reordered()
 
-<<<<<<< HEAD
 weather <- separate(weather, dt, c("date", "time"), sep = " ")
 
 # clean and only keep useful columns 
 tweets <- separate(tweets, created_at, c("date", "time"), sep = " ")
 
-=======
 ap_documents <- tidy(ap_lda, matrix = "gamma") 
 
 #transforming into wide format to use as predictors
 topics = ap_documents %>%
   spread(topic, gamma) %>% 
   mutate(document=row_number())
->>>>>>> 982702a10a4e41b7c01d0ea7f5cc36bbe6ea88fd
 
 # adding the topics as predictors to tm_rt
 rt <- cbind(tm_rt, topics)
