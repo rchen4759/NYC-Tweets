@@ -31,8 +31,6 @@ tweets9 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
 tweets10 <- read_csv("../MDML_Project/data/CLEAN_rt_file_noh_NYC1.csv")
 tweets11 <- read_csv("data/CLEAN_rt0431_18K.csv")
 
-tweets10 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
-tweets11 <- read_csv("../MDML_Project/data/CLEAN_rt_file_noh_NYC1.csv")
 
 # bind the data and remove the duplicated entries (based on full_text)
 rt <- bind_rows(tweets,tweets1)
@@ -94,6 +92,29 @@ rt <-  rt %>%
 
 #joining weather data
 rt <- left_join(rt,weather, by=c("day","hour"))
+
+
+# sentiment analysis 
+# split full_text column into separate words
+rt2 <- rt %>% unnest_tokens(word, full_text)
+
+# inner join with bing lexicon
+rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
+
+# recode positive and negative sentiments as 1 or 0
+rt_with_sentiment <- rt_with_sentiment %>% 
+  mutate(sentiment = case_when(
+    sentiment == 'positive' ~ 1,
+    sentiment == 'negative' ~ 0))
+
+# mean sentiment per tweet
+rt <- rt_with_sentiment %>%
+  group_by(text, day, hour, weekday) %>%
+  mutate(mean_sentiment = mean(sentiment)) %>%
+  distinct(text, day, hour, .keep_all = TRUE) %>%
+  select(-word)
+
+
 
 
 # TOPIC MODELING
@@ -166,25 +187,6 @@ word_plot <- ggplot(data=freq_by_day2, aes(x=day, y=n, colour=word)) +
 
 word_plot <- word_plot + facet_wrap(~word, ncol=3)
 
-# sentiment analysis 
-# split full_text column into separate words
-rt2 <- rt %>% unnest_tokens(word, full_text)
-
-# inner join with bing lexicon
-rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
-
-# recode positive and negative sentiments as 1 or 0
-rt_with_sentiment <- rt_with_sentiment %>% 
-  mutate(sentiment = case_when(
-    sentiment == 'positive' ~ 1,
-    sentiment == 'negative' ~ 0))
-
-# mean sentiment per tweet
-rt_with_sentiment1 <- rt_with_sentiment %>%
-  group_by(text, day, hour, weekday) %>%
-  mutate(mean_sentiment = mean(sentiment)) %>%
-  distinct(text, day, hour, .keep_all = TRUE) %>%
-  select(-word)
 
 
 # EMOJIS 
