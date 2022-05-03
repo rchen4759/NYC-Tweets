@@ -8,6 +8,11 @@ library(ggrepel)
 library(udpipe)
 library(word2vec)
 library(lubridate)
+library(topicmodels)
+library(tm)
+library(tidytext)
+library(reshape2)
+
 
 # load data from csvs extracted over a period of time
 tweets <- read_csv("../MDML_Project/data/CLEAN_rt0431_18K.csv")
@@ -57,19 +62,60 @@ rt <-  rt %>%
   mutate(day=date(created_at),
          hour=hour(created_at),
          weekday=weekdays(created_at),
-         period=case_when(hour <5 ~1,
-                          hour <9 & hour>=5 ~2,
-                          hour <13 & hour>=9 ~3,
-                          hour <17 & hour>=13 ~4,
-                          hour <21 & hour>=17 ~5,
-                          hour <=24 & hour>=21 ~6,)) %>% 
+         period=case_when(hour <4 ~1,
+                          hour <8 & hour>=4 ~2,
+                          hour <12 & hour>=8 ~3,
+                          hour <16 & hour>=12 ~4,
+                          hour <20 & hour>=16 ~5,
+                          hour <=23 & hour>=20 ~6,)) %>% 
   select(-created_at, -created_at.1, -truncated,-contributors,
          -protected, -id.1)
+
 #joining weather data
 rt <- left_join(rt,weather, by=c("day","hour"))
 
 
-# topic modeling 
+# TOPIC MODELING
+#cleaning the corpus
+##22673 25540
+tm_rt <- rt %>% slice(-c(22673, 25540))
+corpus <- Corpus(VectorSource(tm_rt$full_text))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, tolower)
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, removeWords, c("&amp", "nyc", 'amp','newyork',
+                                        "newyorkcity",'york'))
+
+DTM <- DocumentTermMatrix(corpus)
+
+ap_lda <-LDA(DTM, k = 10, control = list(seed = 1234))
+ap_topics <- tidy(ap_lda, matrix = "beta")
+
+ap_top_terms <- ap_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+ap_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+
+ap_documents <- tidy(ap_lda, matrix = "gamma") 
+
+#transforming into wide format to use as predictors
+topics = ap_documents %>%
+  spread(topic, gamma) %>% 
+  mutate(document=row_number())
+
+# adding the topics as predictors to tm_rt
+rt <- cbind(tm_rt, topics)
+
+# Applying the LDA on the testing set
+
 
 
 # sentiment analysis 
