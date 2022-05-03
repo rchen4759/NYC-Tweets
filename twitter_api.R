@@ -102,7 +102,7 @@ write_csv(tweets1, "../MDML_Project/CLEAN_05.01.22-18K.csv")
 
 View(rt)
 
-tweets2 <- search_tweets("#NYC", n = 18000, include_rts = FALSE)
+rt8 <- search_tweets("#nyc", n = 18000, include_rts = FALSE)
 
 rt7 <- search_tweets("new york city", n = 18000, include_rts = FALSE)
 

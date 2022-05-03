@@ -54,10 +54,11 @@ weather <- rbind(weather, weather2)
 weather <- weather %>%
   distinct(dt, main)
 
+weather <- separate(weather, dt, c("date", "time"), sep = " ")
+
 # clean and only keep useful columns 
 tweets <- separate(tweets, created_at, c("date", "time"), sep = " ")
 
-# add in weather data from openweather API
 
 
 
