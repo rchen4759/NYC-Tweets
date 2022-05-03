@@ -12,6 +12,7 @@ library(topicmodels)
 library(tm)
 library(tidytext)
 library(reshape2)
+library(qdap)
 
 
 # load data from csvs extracted over a period of time
@@ -27,6 +28,8 @@ tweets7 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
 # data from new york city 
 tweets8 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity_data.csv")
 tweets9 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
+tweets10 <- read_csv("../MDML_Project/data/CLEAN_rt_file_noh_NYC1.csv")
+tweets11 <- read_csv("data/CLEAN_rt0431_18K.csv")
 
 tweets10 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
 tweets11 <- read_csv("../MDML_Project/data/CLEAN_rt_file_noh_NYC1.csv")
@@ -42,21 +45,22 @@ rt <- bind_rows(rt,tweets6)
 rt <- bind_rows(rt,tweets7)
 rt <- bind_rows(rt,tweets8)
 rt <- bind_rows(rt,tweets9)
+rt <- bind_rows(rt,tweets10)
+rt <- bind_rows(rt,tweets11)
 
 rt <- bind_rows(rt,tweets10)
 rt <- bind_rows(rt,tweets11)
 
 ##REMOVING DUPLICATE TWEETS
 rt <- rt %>% 
-  distinct(full_text, .keep_all = TRUE) #46229left.
+  distinct(full_text, .keep_all = TRUE) #46343 left.
 sum(duplicated(rt[,2])) #all good!
 
 
 ## accessing, cleaning, and merging weather data
-weather <- read_csv("data/NYC_weather.csv")
+weather <- read.csv("data/NYC_weather.csv")
 weather2 <- read_csv("data/weather2.csv")
-weather <- rbind(weather, weather2)
-weather <- weather %>%
+weather <- weather %>% 
   distinct(dt, description) %>% 
   mutate(day=date(dt),
          hour=hour(dt)) %>% 
@@ -92,7 +96,7 @@ corpus <- tm_map(corpus, removeWords, stopwords("english"))
 corpus <- tm_map(corpus, removeWords, c("&amp", "nyc", 'amp','newyork',
                                         "newyorkcity",'york'))
 
-DTM <- DocumentTermMatrix(corpus)
+DTM <- DocumentTermMatrix(corpus) 
 
 ap_lda <-LDA(DTM, k = 10, control = list(seed = 1234))
 ap_topics <- tidy(ap_lda, matrix = "beta")
@@ -122,12 +126,41 @@ rt <- cbind(tm_rt, topics)
 
 # Applying the LDA on the testing set
 
+# bags of words 
+frequency <- freq_terms(rt$full_text,
+                        top = 30, 
+                        stopwords = c(Top100Words, "nyc", "&amp", 
+                                      "nyc", 'amp','newyork',
+                                      "newyorkcity",'york', 
+                                      'httpstco', 'httpstcocmu'),
+                        at.least = 3)
+plot(frequency)
 
+# making a term-document matrix
+tweets_tdm <- TermDocumentMatrix(corpus)
+
+# creating matrix
+tweets_m <- as.matrix(tweets_tdm)
 
 # sentiment analysis 
+# split full_text column into separate words
+rt2 <- rt %>% unnest_tokens(word, full_text)
 
+# inner join with bing lexicon
+rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
 
-# words2vec
+# recode positive and negative sentiments as 1 or 0
+rt_with_sentiment <- rt_with_sentiment %>% 
+  mutate(sentiment = case_when(
+    sentiment == 'positive' ~ 1,
+    sentiment == 'negative' ~ 0))
+
+# mean sentiment per tweet
+rt_with_sentiment1 <- rt_with_sentiment %>%
+  group_by(text, day, hour, weekday) %>%
+  mutate(mean_sentiment = mean(sentiment)) %>%
+  distinct(text, day, hour, .keep_all = TRUE) %>%
+  select(-word)
 
 
 # EMOJIS 

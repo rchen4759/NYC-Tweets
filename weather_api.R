@@ -46,4 +46,4 @@ hourly_comb <- hourly_comb %>%
   ) %>%
   distinct(dt, .keep_all = T)
 
-write.csv(hourly_comb, "nyc_weather.csv")
+write.csv(hourly_comb, "data/weather2.csv")
