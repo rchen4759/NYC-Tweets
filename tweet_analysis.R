@@ -169,6 +169,23 @@ rt_with_sentiment1 <- rt_with_sentiment %>%
   distinct(text, day, hour, .keep_all = TRUE) %>%
   select(-word)
 
+# sentiment plot 
+ggplot(rt_with_sentiment1, aes(x = day, y = mean_sentiment, color = mean_sentiment)) +
+  theme_minimal() +
+  geom_point(aes(color = mean_sentiment), alpha = 0.8) +
+  geom_hline(yintercept = 0.65, color = "#4ab04a", size = 1.5, alpha = 0.6, linetype = "longdash") +
+  geom_hline(yintercept = 0.35, color = "#f05336", size = 1.5, alpha = 0.6, linetype = "longdash") +
+  geom_smooth(size = 1.2, alpha = 0.2) +
+  theme(legend.position = 'bottom',
+        legend.direction = "horizontal",
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(size = 20, face = "bold", vjust = 2, color = 'black', lineheight = 0.8),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.text.y = element_text(size = 8, face = "bold", color = 'black'),
+        axis.text.x = element_text(size = 8, face = "bold", color = 'black')) +
+  ggtitle("Tweets Sentiment rate (probability of positiveness)")
 
 # EMOJIS 
 
