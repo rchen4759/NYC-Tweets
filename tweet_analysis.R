@@ -58,14 +58,25 @@ sum(duplicated(rt[,2])) #all good!
 
 
 ## accessing, cleaning, and merging weather data
-weather <- read.csv("data/NYC_weather.csv")
-weather2 <- read_csv("data/weather2.csv")
-weather <- weather %>% 
+weather <- read.csv("data/weather2.csv")
+weather2 <- read_csv("data/nyc_weather.2.csv")
+
+weather<- weather %>% 
   distinct(dt, description) %>% 
   mutate(day=date(dt),
          hour=hour(dt)) %>% 
   rename(weather_desc=description) %>% 
   select(-dt)
+
+weather2 <- weather2 %>% 
+  distinct(date, time, description) %>% 
+  mutate(day=mdy(date),
+         hour=hour(hms(time))) %>% 
+  rename(weather_desc=description) %>% 
+  select(-date, -time)
+
+weather <- bind_rows(weather,weather2) %>% 
+  distinct(day,hour, .keep_all = TRUE) 
 
 # clean, get day and hour in rt, and get rid of more useless columns 
 rt <-  rt %>%
