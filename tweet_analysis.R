@@ -28,6 +28,9 @@ tweets7 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
 tweets8 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity_data.csv")
 tweets9 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
 
+tweets10 <- read_csv("../MDML_Project/data/CLEAN_nyc_data.csv")
+tweets11 <- read_csv("../MDML_Project/data/CLEAN_rt_file_noh_NYC1.csv")
+
 # bind the data and remove the duplicated entries (based on full_text)
 rt <- bind_rows(tweets,tweets1)
 #sum(duplicated(rt[,2])) #8264 dupes
@@ -39,6 +42,9 @@ rt <- bind_rows(rt,tweets6)
 rt <- bind_rows(rt,tweets7)
 rt <- bind_rows(rt,tweets8)
 rt <- bind_rows(rt,tweets9)
+
+rt <- bind_rows(rt,tweets10)
+rt <- bind_rows(rt,tweets11)
 
 ##REMOVING DUPLICATE TWEETS
 rt <- rt %>% 
