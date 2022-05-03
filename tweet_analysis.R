@@ -122,19 +122,32 @@ rt <- cbind(tm_rt, topics)
 
 # bags of words 
 frequency <- freq_terms(rt$full_text,
-                        top = 30, 
-                        stopwords = c(Top100Words, "nyc", "&amp", 
-                                      "nyc", 'amp','newyork',
+                        top = 20, 
+                        stopwords = c(Top200Words, "nyc", "&amp", 
+                                      "NYC", 'amp','newyork',
                                       "newyorkcity",'york', 
                                       'httpstco', 'httpstcocmu'),
                         at.least = 3)
 plot(frequency)
 
-# making a term-document matrix
-tweets_tdm <- TermDocumentMatrix(corpus)
+freq_by_day <- rt %>% unnest_tokens(word, full_text) %>%
+  select(day, word)
 
-# creating matrix
-tweets_m <- as.matrix(tweets_tdm)
+freq_by_day <- freq_by_day %>%
+  anti_join(stop_words, by = "word") %>%
+  filter(!word %in% c("https", "nyc", "t.co","new", "york", 
+                      "city", "cmu7nohbwc", "newyork")) %>%
+  group_by(day) %>%
+  count(word)
+
+freq_by_day2 <- freq_by_day %>% arrange(desc(n)) %>%
+  group_by(day) %>%
+  slice(1:5)
+
+word_plot <- ggplot(data=freq_by_day2, aes(x=day, y=n, colour=word)) + 
+  geom_point() + ylab("Number of Words")
+
+word_plot <- word_plot + facet_wrap(~word, ncol=3)
 
 # sentiment analysis 
 # split full_text column into separate words
