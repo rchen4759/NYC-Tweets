@@ -47,10 +47,9 @@ sum(duplicated(rt[,2])) #all good!
 
 
 ## accessing, cleaning, and merging weather data
-weather <- read_csv("data/NYC_weather.csv")
+weather <- read.csv("data/NYC_weather.csv")
 weather2 <- read_csv("data/weather2.csv")
-weather <- rbind(weather, weather2)
-weather <- weather %>%
+weather <- weather %>% 
   distinct(dt, description) %>% 
   mutate(day=date(dt),
          hour=hour(dt)) %>% 
