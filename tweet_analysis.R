@@ -122,3 +122,19 @@ rt <- cbind(tm_rt, topics)
 
 
 # words2vec
+
+
+# EMOJIS 
+
+
+
+#RUN LINEAR REGRESSION MODEL ON TRAINING SET
+
+
+# GET RMSE
+
+
+# RUN ON TESTING SET
+
+
+# GET RMSE
