@@ -86,7 +86,7 @@ corpus <- tm_map(corpus, removeWords, stopwords("english"))
 corpus <- tm_map(corpus, removeWords, c("&amp", "nyc", 'amp','newyork',
                                         "newyorkcity",'york'))
 
-DTM <- DocumentTermMatrix(corpus)
+DTM <- DocumentTermMatrix(corpus) 
 
 ap_lda <-LDA(DTM, k = 10, control = list(seed = 1234))
 ap_topics <- tidy(ap_lda, matrix = "beta")
@@ -119,9 +119,27 @@ rt <- cbind(tm_rt, topics)
 
 
 # sentiment analysis 
+library(tidytext)
+library(lubridate)
 
+# split full_text column into separate words
+rt2 <- rt %>% unnest_tokens(word, full_text)
 
-# words2vec
+# inner join with bing lexicon
+rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
+
+# recode positive and negative sentiments as 1 or 0
+rt_with_sentiment <- rt_with_sentiment %>% 
+  mutate(sentiment = case_when(
+    sentiment == 'positive' ~ 1,
+    sentiment == 'negative' ~ 0))
+
+# mean sentiment per tweet
+rt_with_sentiment1 <- rt_with_sentiment %>%
+  group_by(id) %>%
+  summarise(mean_sentiment = mean(sentiment))
+
+# bags of words 
 
 
 # EMOJIS 
