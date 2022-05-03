@@ -13,6 +13,12 @@ library(tm)
 library(tidytext)
 library(reshape2)
 library(qdap)
+library(rtweet)
+library(tidyverse)
+library(rvest)
+library(twitteR)
+library(Unicode)
+library(tidytext)
 
 
 # load data from csvs extracted over a period of time
@@ -31,6 +37,7 @@ tweets9 <- read_csv("../MDML_Project/data/CLEAN_newyorkcity2_data.csv")
 tweets10 <- read_csv("../MDML_Project/data/CLEAN_rt_file_noh_NYC1.csv")
 tweets11 <- read_csv("data/CLEAN_rt0431_18K.csv")
 
+
 # bind the data and remove the duplicated entries (based on full_text)
 rt <- bind_rows(tweets,tweets1)
 #sum(duplicated(rt[,2])) #8264 dupes
@@ -45,6 +52,9 @@ rt <- bind_rows(rt,tweets9)
 rt <- bind_rows(rt,tweets10)
 rt <- bind_rows(rt,tweets11)
 
+rt <- bind_rows(rt,tweets10)
+rt <- bind_rows(rt,tweets11)
+
 ##REMOVING DUPLICATE TWEETS
 rt <- rt %>% 
   distinct(full_text, .keep_all = TRUE) #46343 left.
@@ -52,14 +62,25 @@ sum(duplicated(rt[,2])) #all good!
 
 
 ## accessing, cleaning, and merging weather data
-weather <- read.csv("data/NYC_weather.csv")
-weather2 <- read_csv("data/weather2.csv")
-weather <- weather %>% 
+weather <- read.csv("data/weather2.csv")
+weather2 <- read_csv("data/nyc_weather.2.csv")
+
+weather<- weather %>% 
   distinct(dt, description) %>% 
   mutate(day=date(dt),
          hour=hour(dt)) %>% 
   rename(weather_desc=description) %>% 
   select(-dt)
+
+weather2 <- weather2 %>% 
+  distinct(date, time, description) %>% 
+  mutate(day=mdy(date),
+         hour=hour(hms(time))) %>% 
+  rename(weather_desc=description) %>% 
+  select(-date, -time)
+
+weather <- bind_rows(weather,weather2) %>% 
+  distinct(day,hour, .keep_all = TRUE) 
 
 # clean, get day and hour in rt, and get rid of more useless columns 
 rt <-  rt %>%
@@ -77,6 +98,171 @@ rt <-  rt %>%
 
 #joining weather data
 rt <- left_join(rt,weather, by=c("day","hour"))
+
+
+# sentiment analysis 
+# split full_text column into separate words
+rt2 <- rt %>% unnest_tokens(word, full_text)
+
+# inner join with bing lexicon
+rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
+
+# recode positive and negative sentiments as 1 or 0
+rt_with_sentiment <- rt_with_sentiment %>% 
+  mutate(sentiment = case_when(
+    sentiment == 'positive' ~ 1,
+    sentiment == 'negative' ~ 0))
+
+# mean sentiment per tweet
+rt <- rt_with_sentiment %>%
+  group_by(text, day, hour, weekday) %>%
+  mutate(mean_sentiment = mean(sentiment)) %>%
+  distinct(text, day, hour, .keep_all = TRUE) %>%
+  select(-word)
+
+
+###########-------------------- emoji analysis----------------######
+
+# set up emoji dictionary
+emoji_dictionary <- read.csv2("Documents/A3SR/GE 2047 MDML/PROJECT/emojis.csv") %>% 
+  select(description = EN, r_encoding = ftu8, unicode)
+
+# plain skin tones
+skin_tones <- c("light skin tone", 
+                "medium-light skin tone", 
+                "medium skin tone",
+                "medium-dark skin tone", 
+                "dark skin tone")
+
+# remove plain skin tones and info in description
+emoji_dictionary <- emoji_dictionary %>%
+  # remove plain skin tones emojis
+  filter(!description %in% skin_tones) %>%
+  # remove emojis with skin tones info, e.g. remove woman: light skin tone and only
+  # keep woman
+  filter(!grepl(":", description)) %>%
+  mutate(description = tolower(description)) %>%
+  mutate(unicode = as.u_char(unicode))
+# all emojis with more than one unicode codepoint become NA 
+
+# set up matchto and description variables 
+matchto <- emoji_dictionary$r_encoding
+description <- emoji_dictionary$description
+
+# change format 
+rt <- rt_noh_NYC2 %>% 
+  mutate(text = iconv(text, from = "latin1", to = "ascii", sub = "byte"))
+
+# find most used emojis
+rank <- emojis_matching(rt$text, matchto, description) %>% 
+  group_by(description) %>% 
+  summarise(n = sum(count, na.rm = TRUE)) %>%
+  arrange(-n)
+
+head(rank, 10)
+
+# tweets with most emojis
+most_emojis <- emojis_matching(rt$text, matchto, description) %>% 
+  group_by(text) %>% 
+  summarise(n = sum(count, na.rm = TRUE)) %>% 
+  # I add the time created because it makes it easier to look up certain tweets
+  merge(rt, by = "text") %>% 
+  select(text, n, created_at) %>%
+  arrange(-n)
+
+mean(most_emojis$n, na.rm = TRUE)
+
+# ---------------------------------------------------------------------------- #
+# sentiment analysis
+
+# reference website
+url <- "http://kt.ijs.si/data/Emoji_sentiment_ranking/index.html"
+
+# get emoticons
+emojis_raw <- url %>%
+  read_html() %>%
+  html_table() %>%
+  data.frame() %>%
+  select(-Image.twemoji., -Sentiment.bar.c.i..95..)
+names(emojis_raw) <- c("char", "unicode", "occurrences", "position", "negative", 
+                       "neutral", "positive", "sentiment_score", "description", 
+                       "block")
+
+# change numeric unicode to character unicode to be able to match with emDict 
+emojis <- emojis_raw %>%
+  mutate(unicode = as.u_char(unicode)) %>%
+  mutate(description = tolower(description)) 
+
+str(emojis)
+
+# unicode column is unicode character class
+
+# merge with emDict to get encoding
+emojis_merged <- emojis %>%
+  merge(emoji_dictionary, by = "unicode")
+# emojis %>% filter(!unicode %in% emDict$unicode) %>% View
+# we loose 137 emojis that are not in emDict and for which we don't have an R encoding
+# but they seem to be black and white emojis not too often used in social media anyways
+
+new_matchto <- emojis_merged$r_encoding
+new_description <- emojis_merged$description.x
+sentiment <- emojis_merged$sentiment_score
+
+# aggregated sentiment score
+# higher the score, more positive the tweet 
+sentiments <- emojis_matching(rt$text, new_matchto, new_description, sentiment) %>%
+  mutate(sentiment = count * as.numeric(sentiment)) %>%
+  group_by(text) %>% 
+  summarise(sentiment_score = sum(sentiment, na.rm = TRUE))
+
+sentiments %>% filter(sentiment_score > 0)
+
+rt_merged <- rt %>% 
+  select(text, created_at) %>% 
+  merge(sentiments, by = "text", all.x = TRUE)
+
+rt_merged %>% filter(sentiment_score > 0)
+# some tweets don't have sentiment scores
+
+# plot over time:
+rt_merged %>% 
+  mutate(date = as.Date(created_at)) %>% 
+  group_by(date) %>% 
+  summarise(sent = mean(sentiment_score, na.rm = TRUE)) %>% 
+  ggplot + 
+  aes(x = date, y = sent) + 
+  geom_point() + 
+  geom_line()
+
+
+# ---------------------------------------------------------------------------- #
+# emojis associated with words in tweets
+
+# emojis for each tweet with clean text
+raw_texts <- emojis_matching(rt$text, matchto, description) %>% 
+  select(-sentiment, -count) %>%
+  mutate(text = cleanPosts(text)) %>%
+  filter(text != "") %>% 
+  filter(!is.na(description))
+
+# data frame of emojis with top words 
+word_emojis <- wordFreqEmojis(raw_texts, raw_texts$text, raw_texts$description) %>% 
+  filter(!is.na(words))
+
+# ---------------------------------------------------------------------------- #
+
+# emojis with weekdays
+emojis_matching(rt$text, matchto, description) %>%
+  merge(rt %>% select(text, created_at), by = "text") %>% 
+  select(description, created_at) %>% 
+  mutate(weekday = weekdays(created_at)) %>% 
+  select(-created_at) %>% 
+  group_by(weekday) %>% 
+  summarise(n = n()) %>% 
+  arrange(-n)
+
+
+
 
 
 # TOPIC MODELING
@@ -149,25 +335,6 @@ word_plot <- ggplot(data=freq_by_day2, aes(x=day, y=n, colour=word)) +
 
 word_plot <- word_plot + facet_wrap(~word, ncol=3)
 
-# sentiment analysis 
-# split full_text column into separate words
-rt2 <- rt %>% unnest_tokens(word, full_text)
-
-# inner join with bing lexicon
-rt_with_sentiment <- inner_join(rt2, get_sentiments("bing"))
-
-# recode positive and negative sentiments as 1 or 0
-rt_with_sentiment <- rt_with_sentiment %>% 
-  mutate(sentiment = case_when(
-    sentiment == 'positive' ~ 1,
-    sentiment == 'negative' ~ 0))
-
-# mean sentiment per tweet
-rt_with_sentiment1 <- rt_with_sentiment %>%
-  group_by(text, day, hour, weekday) %>%
-  mutate(mean_sentiment = mean(sentiment)) %>%
-  distinct(text, day, hour, .keep_all = TRUE) %>%
-  select(-word)
 
 # sentiment plot 
 ggplot(rt_with_sentiment1, aes(x = day, y = mean_sentiment, color = mean_sentiment)) +
