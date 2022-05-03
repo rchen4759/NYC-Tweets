@@ -102,12 +102,7 @@ write_csv(rt, "../MDML_Project/rt0431_18K.csv")
 ###---------------------------------------------------------------------##
 
 ## Duja (topic modeling)
-#install.packages('cld3')
-library(cld3)
-#keeping only english languate tweets
-# rt <- rt %>% 
-#   mutate(lang= detect_language(full_text)) %>% 
-#   filter(lang=='en')
+
 #topic modelling
 #install.packages('topicmodels')
 library(topicmodels)
@@ -118,18 +113,26 @@ library(tidytext)
 #install.packages("reshape2")
 library(reshape2)
 
-corpus <- Corpus(VectorSource(rt$full_text))
-corpus <- tm_map(corpus, removeWords, c("#NYC","#nyc", stopwords("english")))
+corpus <- Corpus(VectorSource(tweets$text))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, tolower)
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, removeWords, c("&amp", "nyc", 'amp','newyork',
+                                        "newyorkcity",'york'))
+
+
+
 DTM <- DocumentTermMatrix(corpus)
 
-ap_lda <-LDA(DTM, k = 5, control = list(seed = 1234))
-ap_lda
 
+
+
+
+ap_lda <-LDA(DTM, k = 4, control = list(seed = 1234))
 ap_topics <- tidy(ap_lda, matrix = "beta")
-ap_topics
 
-library(ggplot2)
-library(dplyr)
+# library(ggplot2)
+# library(dplyr)
 
 ap_top_terms <- ap_topics %>%
   group_by(topic) %>%
@@ -144,6 +147,7 @@ ap_top_terms %>%
   facet_wrap(~ topic, scales = "free") +
   scale_y_reordered()
 
+#install.packages("textmineR")
 
 
 
