@@ -124,7 +124,7 @@ rt <- rt_with_sentiment %>%
 ###########-------------------- emoji analysis----------------################
 
 # set up emoji dictionary
-emoji_dictionary <- read.csv2("Documents/A3SR/GE 2047 MDML/PROJECT/emojis.csv") %>% 
+emoji_dictionary <- read.csv2("../MDML_Project/data/emojis.csv") %>% 
   select(description = EN, r_encoding = ftu8, unicode)
 
 # plain skin tones
@@ -150,7 +150,7 @@ matchto <- emoji_dictionary$r_encoding
 description <- emoji_dictionary$description
 
 # change format 
-rt <- rt_noh_NYC2 %>% 
+rt <- rt %>% 
   mutate(text = iconv(text, from = "latin1", to = "ascii", sub = "byte"))
 
 # find most used emojis
@@ -158,7 +158,7 @@ rank <- emojis_matching(rt$text, matchto, description) %>%
   group_by(description) %>% 
   summarise(n = sum(count, na.rm = TRUE)) %>%
   arrange(-n)
-
+write_csv(rank, "../MDML_Project/data/emoji_freq_table.csv")
 head(rank, 10)
 
 # tweets with most emojis
@@ -169,6 +169,7 @@ most_emojis <- emojis_matching(rt$text, matchto, description) %>%
   merge(rt, by = "text") %>% 
   select(text, n, created_at) %>%
   arrange(-n)
+write_csv(most_emojis, "../MDML_Project/data/emoji_table.csv")
 
 mean(most_emojis$n, na.rm = TRUE)
 
