@@ -61,7 +61,7 @@ rt <- rt %>%
 sum(duplicated(rt[,2])) #all good!
 
 
-## accessing, cleaning, and merging weather data
+###------- accessing, cleaning, and merging weather data-------------------###
 weather <- read.csv("data/weather2.csv")
 weather2 <- read_csv("data/nyc_weather.2.csv")
 
@@ -121,7 +121,7 @@ rt <- rt_with_sentiment %>%
   select(-word)
 
 
-###########-------------------- emoji analysis----------------######
+###########-------------------- emoji analysis----------------################
 
 # set up emoji dictionary
 emoji_dictionary <- read.csv2("Documents/A3SR/GE 2047 MDML/PROJECT/emojis.csv") %>% 
