@@ -1,4 +1,3 @@
-
 source('library.R')
 
 
@@ -319,9 +318,12 @@ sum(is.na(rt))
 
 write.csv(rt, "data/tweet_model.csv")
 
+rt <- read.csv("data/tweet_model.csv")
+
+rt <- rt %>% select(-X)
+
 rt <- rt %>%
-  mutate(period = as.factor(period),
-         hour = as.factor(hour))
+  mutate(period = as.factor(period))
 
 rt_favorite <- rt %>%
   select(-day, -retweet_count, -hour)
@@ -341,9 +343,38 @@ train <- sample(seq_len(nrow(rt_favorite)), size = smp_size)
 training_set <- rt_favorite[train, ]
 testing_set <- rt_favorite[-train, ]
 
+# linear regression 
 train_model <-lm(data = training_set, favorite_count ~ .)
 summary(train_model)
+plot(train_model, which = 1)
 
+# poisson regression 
+
+train_model_poss <-glm(data = training_set, favorite_count ~ ., family="poisson")
+
+summary(train_model_poss)
+plot(train_model_poss, which = 1)
+
+jtools::summ(train_model_poss, exp = T)
+
+par(mfrow = c(1,1))
+resid <- predict(train_model) - training_set$favorite_count
+hist(resid)
+resid2 <- predict(train_model_poss) - training_set$favorite_count
+hist(resid2)
+
+sqrt(mean((training_set$favorite_count - train_model_poss$fitted.values)^2))
+
+## random forest 
+library(ranger)
+r_model <- ranger(data = training_set, favorite_count ~ .,
+       num.trees = 1000, respect.unordered.factors = T, probability = F)
+
+summary(r_model)
+
+r_pred <- predict(r_model, data=training_set)$predictions
+
+sqrt(mean((training_set$favorite_count - r_pred)^2))
 
 # GET RMSE
 sqrt(mean((train_model$fitted.values - training_set$favorite_count)^2))
