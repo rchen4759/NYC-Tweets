@@ -1,4 +1,21 @@
 #library
+# load libraries 
+library(tidyverse)
+library(purrrlyr)
+library(caret)
+library(glmnet)
+library(ggrepel)
+library(udpipe)
+library(lubridate)
+library(topicmodels)
+library(tm)
+library(reshape2)
+library(qdap)
+library(rtweet)
+library(rvest)
+library(twitteR)
+library(Unicode)
+library(tidytext)
 
 count_matches <- function(string, matchto, description, sentiment = NA) {
   

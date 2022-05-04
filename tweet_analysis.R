@@ -1,24 +1,5 @@
-# load libraries 
-library(tidyverse)
-library(text2vec)
-library(purrrlyr)
-library(caret)
-library(glmnet)
-library(ggrepel)
-library(udpipe)
-library(word2vec)
-library(lubridate)
-library(topicmodels)
-library(tm)
-library(tidytext)
-library(reshape2)
-library(qdap)
-library(rtweet)
-library(tidyverse)
-library(rvest)
-library(twitteR)
-library(Unicode)
-library(tidytext)
+
+source('library.R')
 
 
 # load data from csvs extracted over a period of time
@@ -154,7 +135,9 @@ rt <- rt %>%
   mutate(text = iconv(text, from = "latin1", to = "ascii", sub = "byte"))
 
 # find most used emojis
-rank <- emojis_matching(rt$text, matchto, description) %>% 
+match_emoji <- emojis_matching(rt$text, matchto, description)
+
+rank <- match_emoji %>% 
   group_by(description) %>% 
   summarise(n = sum(count, na.rm = TRUE)) %>%
   arrange(-n)
@@ -162,19 +145,18 @@ write_csv(rank, "../MDML_Project/data/emoji_freq_table.csv")
 head(rank, 10)
 
 # tweets with most emojis
-most_emojis <- emojis_matching(rt$text, matchto, description) %>% 
+most_emojis <- match_emoji %>% 
   group_by(text) %>% 
-  summarise(n = sum(count, na.rm = TRUE)) %>% 
-  # I add the time created because it makes it easier to look up certain tweets
+  summarise(emoji_freq = sum(count, na.rm = TRUE)) %>% 
   merge(rt, by = "text") %>% 
-  select(text, n, created_at) %>%
-  arrange(-n)
-write_csv(most_emojis, "../MDML_Project/data/emoji_table.csv")
+  select(text, emoji_freq)
 
 mean(most_emojis$n, na.rm = TRUE)
 
+rt <- left_join(rt, most_emojis, by="text")
+
 # ---------------------------------------------------------------------------- #
-# sentiment analysis
+# emojis sentiment analysis
 
 # reference website
 url <- "http://kt.ijs.si/data/Emoji_sentiment_ranking/index.html"
@@ -194,7 +176,7 @@ emojis <- emojis_raw %>%
   mutate(unicode = as.u_char(unicode)) %>%
   mutate(description = tolower(description)) 
 
-str(emojis)
+# str(emojis)
 
 # unicode column is unicode character class
 
@@ -212,26 +194,18 @@ sentiment <- emojis_merged$sentiment_score
 # aggregated sentiment score
 # higher the score, more positive the tweet 
 sentiments <- emojis_matching(rt$text, new_matchto, new_description, sentiment) %>%
-  mutate(sentiment = count * as.numeric(sentiment)) %>%
+  mutate(emoji_sentiment = count * as.numeric(sentiment)) %>%
   group_by(text) %>% 
-  summarise(sentiment_score = sum(sentiment, na.rm = TRUE))
+  summarise(emoji_sentiment = sum(emoji_sentiment, na.rm = TRUE))
 
-sentiments %>% filter(sentiment_score > 0)
-
-rt_merged <- rt %>% 
-  select(text, created_at) %>% 
-  merge(sentiments, by = "text", all.x = TRUE)
-
-rt_merged %>% filter(sentiment_score > 0)
-# some tweets don't have sentiment scores
+rt <- left_join(rt, sentiments, by = "text")
 
 # plot over time:
-rt_merged %>% 
-  mutate(date = as.Date(created_at)) %>% 
-  group_by(date) %>% 
-  summarise(sent = mean(sentiment_score, na.rm = TRUE)) %>% 
+rt %>% 
+  group_by(day) %>% 
+  summarise(mean_emoji_sent = mean(emoji_sentiment, na.rm = TRUE)) %>% 
   ggplot + 
-  aes(x = date, y = sent) + 
+  aes(x = day, y = mean_emoji_sent) + 
   geom_point() + 
   geom_line()
 
@@ -263,14 +237,11 @@ emojis_matching(rt$text, matchto, description) %>%
   arrange(-n)
 
 
-
-
-
 # TOPIC MODELING
 #cleaning the corpus
 ##22673 25540
-tm_rt <- rt %>% slice(-c(22673, 25540))
-corpus <- Corpus(VectorSource(tm_rt$full_text))
+#tm_rt <- rt %>% slice(-c(22673, 25540))
+corpus <- Corpus(VectorSource(rt$text))
 corpus <- tm_map(corpus, removePunctuation)
 corpus <- tm_map(corpus, tolower)
 corpus <- tm_map(corpus, removeWords, stopwords("english"))
@@ -303,7 +274,7 @@ topics = ap_documents %>%
   mutate(document=row_number())
 
 # adding the topics as predictors to tm_rt
-rt <- cbind(tm_rt, topics)
+rt <- cbind(rt, topics)
 
 # Applying the LDA on the testing set
 
@@ -337,35 +308,61 @@ word_plot <- ggplot(data=freq_by_day2, aes(x=day, y=n, colour=word)) +
 word_plot <- word_plot + facet_wrap(~word, ncol=3)
 
 
-# sentiment plot 
-ggplot(rt_with_sentiment1, aes(x = day, y = mean_sentiment, color = mean_sentiment)) +
-  theme_minimal() +
-  geom_point(aes(color = mean_sentiment), alpha = 0.8) +
-  geom_hline(yintercept = 0.65, color = "#4ab04a", size = 1.5, alpha = 0.6, linetype = "longdash") +
-  geom_hline(yintercept = 0.35, color = "#f05336", size = 1.5, alpha = 0.6, linetype = "longdash") +
-  geom_smooth(size = 1.2, alpha = 0.2) +
-  theme(legend.position = 'bottom',
-        legend.direction = "horizontal",
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        plot.title = element_text(size = 20, face = "bold", vjust = 2, color = 'black', lineheight = 0.8),
-        axis.title.x = element_text(size = 16),
-        axis.title.y = element_text(size = 16),
-        axis.text.y = element_text(size = 8, face = "bold", color = 'black'),
-        axis.text.x = element_text(size = 8, face = "bold", color = 'black')) +
-  ggtitle("Tweets Sentiment rate (probability of positiveness)")
+# RUN LINEAR REGRESSION MODEL ON TRAINING SET
+rt <- rt %>%
+  ungroup() %>%
+  select(-day)
+  #select(-result_type, -in_reply_to_screen_name, -possibly_sensitive, -location, 
+         #-description, -sentiment, -document, -text)
 
-# EMOJIS 
+sum(is.na(rt))
+
+write.csv(rt, "data/tweet_model.csv")
+
+rt <- rt %>%
+  mutate(period = as.factor(period),
+         hour = as.factor(hour))
+
+rt_favorite <- rt %>%
+  select(-day, -retweet_count, -hour)
 
 
+test_model <- lm(data = rt_favorite, favorite_count ~ .)
+summary(test_model)
 
-#RUN LINEAR REGRESSION MODEL ON TRAINING SET
+# split training set 80%
+smp_size <- floor(0.80 * nrow(rt_favorite))
+
+## set the seed to make your partition reproducible
+set.seed(123)
+
+train <- sample(seq_len(nrow(rt_favorite)), size = smp_size)
+
+training_set <- rt_favorite[train, ]
+testing_set <- rt_favorite[-train, ]
+
+train_model <-lm(data = training_set, favorite_count ~ .)
+summary(train_model)
 
 
 # GET RMSE
+sqrt(mean((train_model$fitted.values - training_set$favorite_count)^2))
 
 
 # RUN ON TESTING SET
+predict_fav <- predict(train_model, testing_set, type = "response")
 
+test_pred <- testing_set %>%
+  mutate(prob = predict(train_model, testing_set, type = "response"))
 
 # GET RMSE
+
+sqrt(mean((testing_set$favorite_count - predict_fav)^2))
+
+fitControl <- trainControl(method = 'cv', number = 10)
+
+lm1_cv <- train(favorite_count ~ ., data = rt_favorite,
+                method = 'lm',
+                trControl = fitControl)
+lm1_cv
+
