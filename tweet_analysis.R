@@ -278,34 +278,39 @@ rt <- cbind(rt, topics)
 # Applying the LDA on the testing set
 
 # bags of words 
-frequency <- freq_terms(rt$full_text,
+frequency <- freq_terms(rt$text,
                         top = 20, 
                         stopwords = c(Top200Words, "nyc", "&amp", 
                                       "NYC", 'amp','newyork',
                                       "newyorkcity",'york', 
                                       'httpstco', 'httpstcocmu'),
                         at.least = 3)
-plot(frequency)
 
-freq_by_day <- rt %>% unnest_tokens(word, full_text) %>%
+top20 <- plot(frequency)
+
+
+freq_by_day <- rt %>% unnest_tokens(word, text) %>%
   select(day, word)
 
 freq_by_day <- freq_by_day %>%
   anti_join(stop_words, by = "word") %>%
   filter(!word %in% c("https", "nyc", "t.co","new", "york", 
-                      "city", "cmu7nohbwc", "newyork")) %>%
+                      "city", "cmu7nohbwc", "newyork", "1",
+                      "amp")) %>%
   group_by(day) %>%
   count(word)
 
 freq_by_day2 <- freq_by_day %>% arrange(desc(n)) %>%
   group_by(day) %>%
-  slice(1:5)
+  slice(1:4)
 
 word_plot <- ggplot(data=freq_by_day2, aes(x=day, y=n, colour=word)) + 
   geom_point() + ylab("Number of Words")
 
-word_plot <- word_plot + facet_wrap(~word, ncol=3)
+word_plot <- word_plot + facet_wrap(~word, ncol=3) + theme(legend.title = element_blank()) +
+  theme(legend.position = 'none') + ggtitle("Top Words Distribution by Day")
 
+ggsave("figures/word_plot.png", width = 10, height = 10)
 
 # RUN LINEAR REGRESSION MODEL ON TRAINING SET
 rt <- rt %>%
@@ -316,6 +321,7 @@ rt <- rt %>%
 
 sum(is.na(rt))
 
+# exporting the final data to run our regression models to save computation power
 write.csv(rt, "data/tweet_model.csv")
 
 rt <- read.csv("data/tweet_model.csv")
@@ -326,11 +332,7 @@ rt <- rt %>%
   mutate(period = as.factor(period))
 
 rt_favorite <- rt %>%
-  select(-day, -retweet_count, -hour)
-
-
-test_model <- lm(data = rt_favorite, favorite_count ~ .)
-summary(test_model)
+  select(-day, -retweet_count, -hour, -X10)
 
 # split training set 80%
 smp_size <- floor(0.80 * nrow(rt_favorite))
@@ -347,6 +349,9 @@ testing_set <- rt_favorite[-train, ]
 train_model <-lm(data = training_set, favorite_count ~ .)
 summary(train_model)
 plot(train_model, which = 1)
+
+# MSE 
+mean(train_model$residuals^2)
 
 # poisson regression 
 
@@ -375,6 +380,28 @@ summary(r_model)
 r_pred <- predict(r_model, data=training_set)$predictions
 
 sqrt(mean((training_set$favorite_count - r_pred)^2))
+
+
+############ model that replace 0 with 0.01 ###########################
+rt_0 <- rt %>%
+  mutate(favorite_count = replace(favorite_count, favorite_count == 0, 0.01)) %>%
+  select(-X10)
+
+# split training set 80%
+smp_size0 <- floor(0.80 * nrow(rt_0))
+
+train0 <- sample(seq_len(nrow(rt_0)), size = smp_size0)
+
+training_set0 <- rt_0[train0, ]
+testing_set0 <- rt_0[-train0, ]
+
+# linear regression w/ 0.01 and log
+train_model0 <-lm(data = training_set0, log(favorite_count) ~ .)
+summary(train_model0)
+plot(train_model0, which = 1)
+
+# MSE
+mean(train_model0$residuals^2)
 
 # GET RMSE
 sqrt(mean((train_model$fitted.values - training_set$favorite_count)^2))
