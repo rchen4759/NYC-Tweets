@@ -355,8 +355,13 @@ train_model <-lm(data = training_set, favorite_count ~ .)
 summary(train_model)
 plot(train_model, which = 1)
 
-# MSE 
+# MSE on training set
 mean(train_model$residuals^2)
+
+# MSE on testing set
+predict_fav_lm <- predict(train_model, testing_set, type = "response")
+sqrt(mean((testing_set$favorite_count - predict_fav_lm)^2))
+
 
 # poisson regression 
 
