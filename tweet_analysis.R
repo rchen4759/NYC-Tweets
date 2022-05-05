@@ -154,9 +154,7 @@ mean(most_emojis$n, na.rm = TRUE)
 
 rt <- left_join(rt, most_emojis, by="text")
 
-# ---------------------------------------------------------------------------- #
-# emojis sentiment analysis
-
+# --------------------- emojis sentiment analysis --------------------------- #
 # reference website
 url <- "http://kt.ijs.si/data/Emoji_sentiment_ranking/index.html"
 
@@ -236,7 +234,7 @@ emojis_matching(rt$text, matchto, description) %>%
   arrange(-n)
 
 
-# TOPIC MODELING
+#--------------------------- TOPIC MODELING ---------------------------------#
 #cleaning the corpus
 ##22673 25540
 #tm_rt <- rt %>% slice(-c(22673, 25540))
@@ -277,7 +275,7 @@ rt <- cbind(rt, topics)
 
 # Applying the LDA on the testing set
 
-# bags of words 
+#----------------------------- bags of words----------------------------------#
 frequency <- freq_terms(rt$text,
                         top = 20, 
                         stopwords = c(Top200Words, "nyc", "&amp", 
@@ -285,9 +283,8 @@ frequency <- freq_terms(rt$text,
                                       "newyorkcity",'york', 
                                       'httpstco', 'httpstcocmu'),
                         at.least = 3)
-
+# top 20 words used plot
 top20 <- plot(frequency)
-
 
 freq_by_day <- rt %>% unnest_tokens(word, text) %>%
   select(day, word)
@@ -307,12 +304,13 @@ freq_by_day2 <- freq_by_day %>% arrange(desc(n)) %>%
 word_plot <- ggplot(data=freq_by_day2, aes(x=day, y=n, colour=word)) + 
   geom_point() + ylab("Number of Words")
 
+# plot of top words used by day
 word_plot <- word_plot + facet_wrap(~word, ncol=3) + theme(legend.title = element_blank()) +
   theme(legend.position = 'none') + ggtitle("Top Words Distribution by Day")
 
 ggsave("figures/word_plot.png", width = 10, height = 10)
 
-# RUN LINEAR REGRESSION MODEL ON TRAINING SET
+# cleaning final dataframe
 rt <- rt %>%
   ungroup() %>%
   select(-day)
@@ -331,8 +329,15 @@ rt <- rt %>% select(-X)
 rt <- rt %>%
   mutate(period = as.factor(period))
 
+# data for favorite model 
 rt_favorite <- rt %>%
   select(-day, -retweet_count, -hour, -X10)
+
+# data for re-tweet model
+rt_retweet <- rt %>%
+  select(-day, -favorite_count, -hour, -X10)
+
+#------------------------ predicting favorites -------------------------------#
 
 # split training set 80%
 smp_size <- floor(0.80 * nrow(rt_favorite))
@@ -383,9 +388,8 @@ sqrt(mean((training_set$favorite_count - r_pred)^2))
 
 
 ############ model that replace 0 with 0.01 ###########################
-rt_0 <- rt %>%
-  mutate(favorite_count = replace(favorite_count, favorite_count == 0, 0.01)) %>%
-  select(-X10)
+rt_0 <- rt_favorite %>%
+  mutate(favorite_count = replace(favorite_count, favorite_count == 0, 0.01))
 
 # split training set 80%
 smp_size0 <- floor(0.80 * nrow(rt_0))
@@ -423,4 +427,73 @@ lm1_cv <- train(favorite_count ~ ., data = rt_favorite,
                 method = 'lm',
                 trControl = fitControl)
 lm1_cv
+
+#------------------------ predicting retweets -------------------------------#
+# split training set 80%
+smp_size <- floor(0.80 * nrow(rt_retweet))
+
+train <- sample(seq_len(nrow(rt_retweet)), size = smp_size)
+
+training_set <- rt_retweet[train, ]
+testing_set <- rt_retweet[-train, ]
+
+# linear regression 
+train_model <-lm(data = training_set, retweet_count ~ .)
+summary(train_model)
+plot(train_model, which = 1)
+
+# MSE 
+mean(train_model$residuals^2)
+
+# poisson regression 
+
+train_model_poss <-glm(data = training_set, retweet_count ~ ., family="poisson")
+
+summary(train_model_poss)
+plot(train_model_poss, which = 1)
+
+jtools::summ(train_model_poss, exp = T)
+
+par(mfrow = c(1,1))
+resid <- predict(train_model) - training_set$retweet_count
+hist(resid)
+resid2 <- predict(train_model_poss) - training_set$retweet_count
+hist(resid2)
+
+sqrt(mean((training_set$retweet_count - train_model_poss$fitted.values)^2))
+
+## random forest 
+r_model <- ranger(data = training_set, retweet_count ~ .,
+                  num.trees = 1000, respect.unordered.factors = T, probability = F)
+
+summary(r_model)
+
+r_pred <- predict(r_model, data=training_set)$predictions
+
+sqrt(mean((training_set$retweet_count - r_pred)^2))
+
+
+############ model that replace 0 with 0.01 ###########################
+rt_0 <- rt_retweet %>%
+  mutate(retweet_count = replace(retweet_count, retweet_count == 0, 0.01))
+
+# split training set 80%
+smp_size0 <- floor(0.80 * nrow(rt_0))
+
+train0 <- sample(seq_len(nrow(rt_0)), size = smp_size0)
+
+training_set0 <- rt_0[train0, ]
+testing_set0 <- rt_0[-train0, ]
+
+# linear regression w/ 0.01 and log
+train_model0 <-lm(data = training_set0, log(favorite_count) ~ .)
+summary(train_model0)
+plot(train_model0, which = 1)
+
+# MSE
+mean(train_model0$residuals^2)
+
+# GET RMSE
+sqrt(mean((train_model$fitted.values - training_set$favorite_count)^2))
+
 
