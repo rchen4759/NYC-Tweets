@@ -315,7 +315,7 @@ train <- sample(seq_len(nrow(rt_favorite)), size = smp_size)
 training_favorite <- rt_favorite[train, ]
 other_favorite <- rt_favorite[-train, ]
 
-half <- floor(0.50 * nrow(other))
+half <- floor(0.50 * nrow(other_favorite))
 
 other_fav_set <- sample(seq_len(nrow(other_favorite)), size = half)
 
