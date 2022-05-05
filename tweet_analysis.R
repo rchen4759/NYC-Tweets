@@ -171,14 +171,9 @@ emojis <- emojis_raw %>%
   mutate(unicode = as.u_char(unicode)) %>%
   mutate(description = tolower(description)) 
 
-# str(emojis)
-
-# unicode column is unicode character class
-
 # merge with emDict to get encoding
 emojis_merged <- emojis %>%
   merge(emoji_dictionary, by = "unicode")
-# emojis %>% filter(!unicode %in% emDict$unicode) %>% View
 # we loose 137 emojis that are not in emDict and for which we don't have an R encoding
 # but they seem to be black and white emojis not too often used in social media anyways
 
@@ -203,34 +198,6 @@ rt %>%
   aes(x = day, y = mean_emoji_sent) + 
   geom_point() + 
   geom_line()
-
-
-# ---------------------------------------------------------------------------- #
-# emojis associated with words in tweets
-
-# emojis for each tweet with clean text
-raw_texts <- emojis_matching(rt$text, matchto, description) %>% 
-  select(-sentiment, -count) %>%
-  mutate(text = cleanPosts(text)) %>%
-  filter(text != "") %>% 
-  filter(!is.na(description))
-
-# data frame of emojis with top words 
-word_emojis <- wordFreqEmojis(raw_texts, raw_texts$text, raw_texts$description) %>% 
-  filter(!is.na(words))
-
-# ---------------------------------------------------------------------------- #
-
-# emojis with weekdays
-emojis_matching(rt$text, matchto, description) %>%
-  merge(rt %>% select(text, created_at), by = "text") %>% 
-  select(description, created_at) %>% 
-  mutate(weekday = weekdays(created_at)) %>% 
-  select(-created_at) %>% 
-  group_by(weekday) %>% 
-  summarise(n = n()) %>% 
-  arrange(-n)
-
 
 #--------------------------- TOPIC MODELING ---------------------------------#
 #cleaning the corpus
@@ -336,167 +303,115 @@ rt_retweet <- rt %>%
   select(-day, -favorite_count, -hour, -X10)
 
 #------------------------ predicting favorites -------------------------------#
-
-# split training set 80%
-smp_size <- floor(0.80 * nrow(rt_favorite))
+# split training set 60%
+smp_size <- floor(0.60 * nrow(rt_favorite))
 
 ## set the seed to make your partition reproducible
 set.seed(123)
 
 train <- sample(seq_len(nrow(rt_favorite)), size = smp_size)
 
-training_set <- rt_favorite[train, ]
-testing_set <- rt_favorite[-train, ]
+# training set 60%
+training_favorite <- rt_favorite[train, ]
+other_favorite <- rt_favorite[-train, ]
+
+half <- floor(0.50 * nrow(other))
+
+other_fav_set <- sample(seq_len(nrow(other_favorite)), size = half)
+
+# validation set 20%
+validation_favorite <- other_favorite[other_fav_set,]
+
+# testing set 20% 
+testing_favorite <- other_favorite[-other_fav_set, ]
 
 # linear regression 
-train_model <-lm(data = training_set, favorite_count ~ .)
-summary(train_model)
-plot(train_model, which = 1)
+train_fav_model <-lm(data = training_favorite, favorite_count ~ .)
+summary(train_fav_model)
+plot(train_fav_model, which = 1)
 
-# MSE on training set
-mean(train_model$residuals^2)
+# RMSE on training set
+train_RMSE_lmfav <- sqrt(mean(train_fav_model$residuals^2))
 
-# MSE on testing set
-predict_fav_lm <- predict(train_model, testing_set, type = "response")
-sqrt(mean((testing_set$favorite_count - predict_fav_lm)^2))
-
+# RMSE on validation set
+predict_fav_lm <- predict(train_fav_model, validation_favorite, type = "response")
+RMSE_lm_fav <- sqrt(mean((validation_favorite$favorite_count - predict_fav_lm)^2))
 
 # poisson regression 
+train_fav_poss <-glm(data = training_favorite, favorite_count ~ ., family="poisson")
+summary(train_fav_poss)
+plot(train_fav_poss, which = 1)
 
-train_model_poss <-glm(data = training_set, favorite_count ~ ., family="poisson")
+jtools::summ(train_fav_poss, exp = T)
 
-summary(train_model_poss)
-plot(train_model_poss, which = 1)
+# training poisson RMSE
+train_poss_RMSE <- sqrt(mean((training_favorite$favorite_count - train_fav_poss$fitted.values)^2))
 
-jtools::summ(train_model_poss, exp = T)
-
-par(mfrow = c(1,1))
-resid <- predict(train_model) - training_set$favorite_count
-hist(resid)
-resid2 <- predict(train_model_poss) - training_set$favorite_count
-hist(resid2)
-
-sqrt(mean((training_set$favorite_count - train_model_poss$fitted.values)^2))
+# validation poisson RMSE
+predict_fav_poss <- predict(train_fav_poss, validation_favorite, type = "response")
+val_poss_RMSE <- sqrt(mean((validation_favorite$favorite_count - predict_fav_poss)^2))
 
 ## random forest 
 library(ranger)
-r_model <- ranger(data = training_set, favorite_count ~ .,
+r_model <- ranger(data = training_favorite, favorite_count ~ .,
        num.trees = 1000, respect.unordered.factors = T, probability = F)
 
-summary(r_model)
+# RMSE train random forest
+r_pred <- predict(r_model, data=training_favorite)$predictions
 
-r_pred <- predict(r_model, data=training_set)$predictions
+rf_fav_trainRMSE <- sqrt(mean((training_favorite$favorite_count - r_pred)^2))
 
-sqrt(mean((training_set$favorite_count - r_pred)^2))
+# RMSE validation random forest
+r_pred_val <- predict(r_model, data=validation_favorite)$predictions
 
-
-############ model that replace 0 with 0.01 ###########################
-rt_0 <- rt_favorite %>%
-  mutate(favorite_count = replace(favorite_count, favorite_count == 0, 0.01))
-
-# split training set 80%
-smp_size0 <- floor(0.80 * nrow(rt_0))
-
-train0 <- sample(seq_len(nrow(rt_0)), size = smp_size0)
-
-training_set0 <- rt_0[train0, ]
-testing_set0 <- rt_0[-train0, ]
-
-# linear regression w/ 0.01 and log
-train_model0 <-lm(data = training_set0, log(favorite_count) ~ .)
-summary(train_model0)
-plot(train_model0, which = 1)
-
-# MSE
-mean(train_model0$residuals^2)
-
-# GET RMSE
-sqrt(mean((train_model$fitted.values - training_set$favorite_count)^2))
-
-
-# RUN ON TESTING SET
-predict_fav <- predict(train_model, testing_set, type = "response")
-
-test_pred <- testing_set %>%
-  mutate(prob = predict(train_model, testing_set, type = "response"))
-
-# GET RMSE
-
-sqrt(mean((testing_set$favorite_count - predict_fav)^2))
-
-fitControl <- trainControl(method = 'cv', number = 10)
-
-lm1_cv <- train(favorite_count ~ ., data = rt_favorite,
-                method = 'lm',
-                trControl = fitControl)
-lm1_cv
-
-#------------------------ predicting retweets -------------------------------#
-# split training set 80%
-smp_size <- floor(0.80 * nrow(rt_retweet))
-
-train <- sample(seq_len(nrow(rt_retweet)), size = smp_size)
-
-training_set <- rt_retweet[train, ]
-testing_set <- rt_retweet[-train, ]
-
-# linear regression 
-train_model <-lm(data = training_set, retweet_count ~ .)
-summary(train_model)
-plot(train_model, which = 1)
-
-# MSE 
-mean(train_model$residuals^2)
-
-# poisson regression 
-
-train_model_poss <-glm(data = training_set, retweet_count ~ ., family="poisson")
-
-summary(train_model_poss)
-plot(train_model_poss, which = 1)
-
-jtools::summ(train_model_poss, exp = T)
-
-par(mfrow = c(1,1))
-resid <- predict(train_model) - training_set$retweet_count
-hist(resid)
-resid2 <- predict(train_model_poss) - training_set$retweet_count
-hist(resid2)
-
-sqrt(mean((training_set$retweet_count - train_model_poss$fitted.values)^2))
-
-## random forest 
-r_model <- ranger(data = training_set, retweet_count ~ .,
-                  num.trees = 1000, respect.unordered.factors = T, probability = F)
-
-summary(r_model)
-
-r_pred <- predict(r_model, data=training_set)$predictions
-
-sqrt(mean((training_set$retweet_count - r_pred)^2))
-
+rf_fav_valRMSE <- sqrt(mean((validation_favorite$favorite_count - r_pred_val)^2))
 
 ############ model that replace 0 with 0.01 ###########################
-rt_0 <- rt_retweet %>%
-  mutate(retweet_count = replace(retweet_count, retweet_count == 0, 0.01))
+rt_0_train <- training_favorite %>%
+  mutate(favorite_count = replace(favorite_count, favorite_count == 0, 0.01)) %>%
+  mutate(favorite_count = log(favorite_count))
 
-# split training set 80%
-smp_size0 <- floor(0.80 * nrow(rt_0))
-
-train0 <- sample(seq_len(nrow(rt_0)), size = smp_size0)
-
-training_set0 <- rt_0[train0, ]
-testing_set0 <- rt_0[-train0, ]
+rt_0_val <- validation_favorite %>%
+  mutate(favorite_count = replace(favorite_count, favorite_count == 0, 0.01)) %>%
+  mutate(favorite_count = log(favorite_count))
 
 # linear regression w/ 0.01 and log
-train_model0 <-lm(data = training_set0, log(favorite_count) ~ .)
-summary(train_model0)
-plot(train_model0, which = 1)
-
-# MSE
-mean(train_model0$residuals^2)
+train_model0_fav <-lm(data = rt_0_train, favorite_count ~ .)
+summary(train_model0_fav)
+plot(train_model0_fav, which = 1)
 
 # GET RMSE
-sqrt(mean((train_model$fitted.values - training_set$favorite_count)^2))
+rt_0fav_trainRMSE <- sqrt(mean((rt_0_train$favorite_count - train_model0_fav$fitted.values)^2))
 
+# RUN ON VALIDATION
+predict_0fav <- predict(train_model0_fav, rt_0_val, type = "response")
 
+# Validation RMSE
+rt_0fav_valRMSE <- sqrt(mean((rt_0_val$favorite_count - predict_0fav)^2))
+
+train_RMSE_lmfav
+RMSE_lm_fav
+train_poss_RMSE
+val_poss_RMSE
+rf_fav_trainRMSE
+rf_fav_valRMSE
+rt_0fav_trainRMSE 
+rt_0fav_valRMSE
+
+training_RMSE <- data.frame(rbind(train_RMSE_lmfav, train_poss_RMSE, rf_fav_trainRMSE, rt_0fav_trainRMSE))
+
+validation_RMSE <- data.frame(rbind(RMSE_lm_fav, val_poss_RMSE, rf_fav_valRMSE, rt_0fav_valRMSE))
+
+RMSE_table <- cbind(training_RMSE, validation_RMSE)
+
+colnames(RMSE_table) <- c("Training Set","Validation Set")
+rownames(RMSE_table) <- c("Linear Regression", "Poisson Regression",
+                          "Random Forest", "Log Model")
+
+write.csv(RMSE_table, "figures/RMSE_table.csv")
+
+# Poison model selected because it was the best for our questions 
+# Running poison model on testing set 
+predict_fav_poss_test <- predict(train_fav_poss, testing_favorite, type = "response")
+val_poss_RMSE_test <- sqrt(mean((testing_favorite$favorite_count - predict_fav_poss_test)^2))
+# 212 
