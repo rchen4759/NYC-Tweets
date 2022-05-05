@@ -32,9 +32,6 @@ rt <- bind_rows(rt,tweets9)
 rt <- bind_rows(rt,tweets10)
 rt <- bind_rows(rt,tweets11)
 
-rt <- bind_rows(rt,tweets10)
-rt <- bind_rows(rt,tweets11)
-
 ##REMOVING DUPLICATE TWEETS
 rt <- rt %>% 
   distinct(full_text, .keep_all = TRUE) #46343 left.
@@ -79,6 +76,7 @@ rt <-  rt %>%
 #joining weather data
 rt <- left_join(rt,weather, by=c("day","hour"))
 
+dist(rt$favorite_count)
 
 # sentiment analysis 
 # split full_text column into separate words
