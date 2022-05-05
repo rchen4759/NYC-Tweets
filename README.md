@@ -1,6 +1,6 @@
 # MDML_Project
 
-Research Question: Given all tweets relating to NYC, what determines the number of favorites?
+Research Question: Given all available tweets relating to NYC, what determines the number of favorites?
 
 Analysis Files:
 - tweet_analysis.R: code to clean and combine all data files, methods, and models of tweet data 
